@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ prop }} · {{ year }}</title>
+<style>
+/* Colors and fonts are defined once here so they are easy to change. */
+:root{--bg:#eef2f5;--card:#fff;--ink:#1c2b36;--muted:#62737f;--line:#d9e1e7;--brand:#1f4e6b;--good:#2f7d5b;--bad:#b3402f}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 "Segoe UI",system-ui,sans-serif}
+header{background:var(--brand);color:#fff;padding:18px 28px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+header h1{margin:0;font-size:22px;font-weight:600} main{max-width:1050px;margin:0 auto;padding:22px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+.tabs a{padding:8px 18px;border-radius:8px;text-decoration:none;color:var(--brand);background:#dfe8ee;font-weight:600}
+.tabs a.on{background:var(--brand);color:#fff}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:20px}
+h2{margin:0 0 14px;font-size:19px}
+.totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.totals div{padding:12px 14px;border:1px solid var(--line);border-radius:8px} .totals span{display:block;color:var(--muted);font-size:14px}
+.totals b{font-size:22px} .totals .big{background:var(--brand);color:#fff;border-color:var(--brand)} .totals .big span{color:#cfe0ea}
+table{width:100%;border-collapse:collapse} th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-size:14px;color:var(--muted)} .r{text-align:right} tfoot td{font-weight:700;border-bottom:0}
+input,select{font:inherit;padding:8px 10px;border:1px solid #b9c6cf;border-radius:6px;width:100%;background:#fff}
+input:focus,button:focus-visible,a:focus-visible{outline:3px solid #7fb2d1;outline-offset:1px}
+label{font-size:14px;color:var(--muted);display:block;margin-bottom:3px}
+.form{display:grid;grid-template-columns:140px 1fr 160px 120px;gap:12px;align-items:end} .form .wide{grid-column:1/-1}
+.btn{font:inherit;font-weight:600;padding:9px 18px;border:0;border-radius:7px;background:var(--brand);color:#fff;cursor:pointer;text-decoration:none;display:inline-block}
+.btn.alt{background:#fff;color:var(--brand);border:1px solid var(--brand)} .btn.small{padding:5px 12px;font-size:14px} .btn.del{background:#fff;color:var(--bad);border:1px solid var(--bad)}
+.flash{background:#e3f3ea;border:1px solid #a9d6bd;color:#1d5c40;padding:10px 16px;border-radius:8px;margin-bottom:16px}
+.actions{display:flex;gap:8px;justify-content:flex-end} .actions form{margin:0} .empty{color:var(--muted);padding:18px 0}
+details summary{cursor:pointer;color:var(--brand);font-weight:600} @media(max-width:760px){.form{grid-template-columns:1fr 1fr} main{padding:12px}}
+@media print{header,.tabs,.form,.actions,.noprint{display:none}}
+</style></head><body>
+<header>
+  <h1>{{ prop }} · Expense Tracker</h1>
+  <div class="actions">
+    <a class="btn alt" href="{{ url_for('export_pdf', year=year) }}">Export {{ year }} to PDF</a>
+  </div>
+</header>
+<main>
+  {# Pop-up style messages such as "Expense added." #}
+  {% for m in get_flashed_messages() %}<div class="flash">{{ m }}</div>{% endfor %}
+
+  {# Year tabs: click to switch years. "+ New year" opens the next empty year. #}
+  <nav class="tabs">
+    {% for y in years %}<a href="{{ url_for('year_page', year=y) }}" class="{{ 'on' if y==year }}">{{ y }}</a>{% endfor %}
+    <a href="{{ url_for('year_page', year=years[-1]+1) }}">+ New year</a>
+  </nav>
+
+  {# Yearly totals at a glance #}
+  <section class="card"><h2>{{ year }} summary</h2><div class="totals">
+    <div class="big"><span>Total for the year</span><b>{{ s.grand|money }}</b></div>
+    <div><span>Expenses</span><b>{{ s.exp_total|money }}</b></div>
+    <div><span>Management fees</span><b>{{ s.mgmt_total|money }}</b></div>
+    <div><span>Due to agent</span><b>{{ s.agent_total|money }}</b></div>
+    <div><span>HOA</span><b>{{ s.hoa_total|money }}</b></div>
+  </div></section>
+
+  {# Add / edit form. When you click "Edit" on a row, it fills in here. #}
+  <section class="card"><h2>{{ 'Edit expense' if editing else 'Add an expense' }}</h2>
+    <form method="post" action="{{ url_for('save_expense', year=year) }}" class="form">
+      {% if editing %}<input type="hidden" name="id" value="{{ editing.id }}">{% endif %}
+      <div><label for="date">Date of work</label><input type="date" id="date" name="date" value="{{ editing.date if editing and editing.date else '' }}"></div>
+      <div><label for="description">What was it? *</label><input id="description" name="description" required placeholder="e.g. Water heater repair" value="{{ editing.description if editing else '' }}"></div>
+      <div><label for="category">Category</label><input id="category" name="category" list="cats" placeholder="e.g. Repairs" value="{{ editing.category if editing else '' }}"></div>
+      <div><label for="amount">Cost ($) *</label><input id="amount" name="amount" required inputmode="decimal" placeholder="0.00" value="{{ editing.amount if editing else '' }}"></div>
+      <div class="wide"><label for="notes">Notes (optional)</label><input id="notes" name="notes" value="{{ editing.notes if editing and editing.notes else '' }}"></div>
+      <datalist id="cats">{% for c in cats %}<option value="{{ c }}">{% endfor %}</datalist>
+      <div class="wide actions" style="justify-content:flex-start">
+        <button class="btn">{{ 'Save changes' if editing else 'Add expense' }}</button>
+        {% if editing %}<a class="btn alt" href="{{ url_for('year_page', year=year) }}">Cancel</a>{% endif %}
+      </div>
+    </form></section>
+
+  {# The list of expenses for this year #}
+  <section class="card"><h2>{{ year }} expenses</h2>
+    {% if s.expenses %}<div style="overflow-x:auto"><table>
+      <thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="r">Cost</th><th class="noprint"></th></tr></thead>
+      <tbody>{% for e in s.expenses %}<tr>
+        <td>{{ e.date or '—' }}</td><td>{{ e.description }}{% if e.notes %}<br><small style="color:var(--muted)">{{ e.notes }}</small>{% endif %}</td>
+        <td>{{ e.category or '' }}</td><td class="r">{{ e.amount|money }}</td>
+        <td class="actions noprint"><a class="btn small alt" href="{{ url_for('year_page', year=year, edit=e.id) }}#top">Edit</a>
+          <form method="post" action="{{ url_for('delete_expense', id=e.id) }}" onsubmit="return confirm('Delete this expense?')"><button class="btn small del">Delete</button></form></td>
+      </tr>{% endfor %}</tbody>
+      <tfoot><tr><td colspan="3">Total expenses</td><td class="r">{{ s.exp_total|money }}</td><td></td></tr></tfoot>
+    </table></div>
+    {% else %}<p class="empty">No expenses for {{ year }} yet. Use the form above to add the first one, or import your Excel file below.</p>{% endif %}
+  </section>
+
+  {# Monthly recurring charges: one row per month, saved together #}
+  <section class="card" id="monthly"><h2>Monthly charges</h2>
+    <form method="post" action="{{ url_for('save_monthly', year=year) }}">
+      <div style="overflow-x:auto"><table>
+        <thead><tr><th>Month</th><th>Mgmt fee</th><th>Due to agent</th><th>HOA</th><th>Note (e.g. late fee)</th></tr></thead>
+        <tbody>{% for m in s.months %}<tr><td>{{ m.name }}</td>
+          <td><input name="mgmt{{ m.n }}" inputmode="decimal" value="{{ m.mgmt or '' }}"></td>
+          <td><input name="agent{{ m.n }}" inputmode="decimal" value="{{ m.agent or '' }}"></td>
+          <td><input name="hoa{{ m.n }}" inputmode="decimal" value="{{ m.hoa or '' }}"></td>
+          <td><input name="note{{ m.n }}" value="{{ m.note }}"></td></tr>{% endfor %}</tbody>
+        <tfoot><tr><td>Total</td><td>{{ s.mgmt_total|money }}</td><td>{{ s.agent_total|money }}</td><td>{{ s.hoa_total|money }}</td><td></td></tr></tfoot>
+      </table></div>
+      <p class="noprint"><button class="btn">Save monthly charges</button></p>
+    </form></section>
+
+  {# Import and backup tools, tucked away until needed #}
+  <section class="card noprint"><details><summary>Import from Excel / Back up</summary><br>
+    <form method="post" action="{{ url_for('import_excel') }}" enctype="multipart/form-data" onsubmit="return confirm('This replaces the data for every year found in the file. Continue?')">
+      <p>Choose your Excel file (each sheet named by year, like 2025). Years in the file are replaced.</p>
+      <input type="file" name="file" accept=".xlsx" required style="max-width:420px"> <button class="btn" style="margin-top:8px">Import</button>
+    </form><p><a class="btn alt" href="{{ url_for('backup') }}">Download a backup of all data</a></p></details></section>
+</main></body></html>

@@ -1,0 +1,10 @@
+services:
+  expenses:
+    build: .                   # build the app from the Dockerfile
+    ports:
+      - "8080:8080"            # open it in your browser at http://localhost:8080
+    volumes:
+      - ./data:/app/data       # your database is stored in the "data" folder next to this file
+    environment:
+      - PROPERTY_NAME=My Rental Property   # change this to your property name or address
+    restart: unless-stopped    # starts again by itself when Docker starts
