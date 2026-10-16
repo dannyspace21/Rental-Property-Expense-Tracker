@@ -23,3 +23,5 @@ management fee, agent and HOA in columns F, G, H and an optional note in column 
 
 ## License
 MIT
+
+<img width="1725" height="883" alt="image" src="https://github.com/user-attachments/assets/e2f32461-9991-4391-8c47-c079aa3e16dc" />
