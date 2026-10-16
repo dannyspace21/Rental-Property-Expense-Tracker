@@ -22,6 +22,8 @@ starting at row 3 and ending at a row labeled "Total". The 12 monthly rows are i
 management fee, agent and HOA in columns F, G, H and an optional note in column I.
 
 ## License
-MIT
+Free to use as you wish
 
 <img width="1725" height="883" alt="image" src="https://github.com/user-attachments/assets/e2f32461-9991-4391-8c47-c079aa3e16dc" />
+<img width="1378" height="922" alt="image" src="https://github.com/user-attachments/assets/63948db0-be52-42be-b751-244857abac66" />
+
