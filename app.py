@@ -82,7 +82,8 @@ def local_path(url):
 def back(default):
     """Go back to where the user came from (only to pages on this site)."""
     nxt = request.values.get("next") or ""
-    return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else default)
+    safe = nxt.startswith("/") and not nxt.startswith("//") and "\\" not in nxt
+    return redirect(nxt if safe else default)
 
 def vendor_id_for(name):
     """Find a vendor by name, or create them (so you can type a new name right in the form)."""
@@ -91,6 +92,12 @@ def vendor_id_for(name):
     row = db().execute("SELECT id FROM vendors WHERE lower(name)=lower(?)", (name,)).fetchone()
     if row: return row["id"]
     return db().execute("INSERT INTO vendors (name) VALUES (?)", (name,)).lastrowid
+
+def remove_receipt_file(stored):
+    """Delete a receipt file, unless an imported mortgage document still uses it."""
+    if db().execute("SELECT 1 FROM mortgage_docs WHERE stored=?", (stored,)).fetchone(): return
+    try: os.remove(os.path.join(store.RECEIPT_DIR, stored))
+    except OSError: pass
 
 def save_receipts(tx_id):
     """Store uploaded receipt photos/PDFs for a transaction."""
@@ -110,6 +117,15 @@ def save_receipts(tx_id):
 
 # ---------- RUNS BEFORE EVERY PAGE ----------
 _last_daily = {"day": None}
+
+@app.before_request
+def same_site_only():
+    """Refuse form submissions that come from another website. There's no login,
+    so without this a web page you visit could post forms to the app in your browser."""
+    if request.method == "POST":
+        source = request.headers.get("Origin") or request.headers.get("Referer")
+        if source and urlsplit(source).netloc != request.host:
+            abort(403)
 
 @app.before_request
 def daily_jobs():
@@ -176,15 +192,20 @@ def money_list():
                            years=reports.years_with_data(pid),
                            advanced=any(f[k] for k in ("category", "vendor", "from", "to", "min", "max")))
 
+def cell(text):
+    """Stop spreadsheet apps from running text as a formula (e.g. a description starting with '=')."""
+    text = str(text or "")
+    return "'" + text if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
+
 @app.route("/money/export.csv")
 def money_csv():
     rows = filtered(money_filters(), current_pid())
     out = io.StringIO(); w = csv.writer(out)
     w.writerow(["Date", "Type", "Property", "Description", "Category", "Schedule E line", "Amount", "Vendor", "Tenant", "Notes", "Receipts", "Paid from escrow"])
     for r in rows:
-        w.writerow([r["date"], r["kind"].title(), r["property"], r["description"], r["category"],
-                    store.CATEGORY_LINE.get(r["category"]) or "", f"{r['amount']:.2f}", r["vendor"] or "",
-                    r["tenant"] or "", r["notes"] or "", r["receipts"], "yes" if r["from_escrow"] else ""])
+        w.writerow([r["date"], r["kind"].title(), cell(r["property"]), cell(r["description"]), r["category"],
+                    store.CATEGORY_LINE.get(r["category"]) or "", f"{r['amount']:.2f}", cell(r["vendor"]),
+                    cell(r["tenant"]), cell(r["notes"]), r["receipts"], "yes" if r["from_escrow"] else ""])
     resp = make_response(out.getvalue())
     resp.headers["Content-Type"] = "text/csv; charset=utf-8"
     resp.headers["Content-Disposition"] = f"attachment; filename=transactions-{today().isoformat()}.csv"
@@ -246,8 +267,7 @@ def money_save():
 @app.route("/money/<int:tx_id>/delete", methods=["POST"])
 def money_delete(tx_id):
     for a in db().execute("SELECT stored FROM attachments WHERE transaction_id=?", (tx_id,)).fetchall():
-        try: os.remove(os.path.join(store.RECEIPT_DIR, a["stored"]))
-        except OSError: pass
+        remove_receipt_file(a["stored"])
     db().execute("DELETE FROM transactions WHERE id=?", (tx_id,)); db().commit()
     flash("Deleted.")
     return back(url_for("money_list"))
@@ -260,8 +280,7 @@ def receipt(att_id):
 @app.route("/receipt/<int:att_id>/delete", methods=["POST"])
 def receipt_delete(att_id):
     a = db().execute("SELECT * FROM attachments WHERE id=?", (att_id,)).fetchone() or abort(404)
-    try: os.remove(os.path.join(store.RECEIPT_DIR, a["stored"]))
-    except OSError: pass
+    remove_receipt_file(a["stored"])
     db().execute("DELETE FROM attachments WHERE id=?", (att_id,)); db().commit()
     flash("Receipt removed.")
     return redirect(url_for("money_form", tx_id=a["transaction_id"]))
@@ -560,7 +579,7 @@ def schedule_e_csv(year):
     pid = current_pid()
     se = reports.schedule_e(pid, year)
     out = io.StringIO(); w = csv.writer(out)
-    w.writerow([f"Schedule E summary - {report_title(pid)} - {year}"]); w.writerow(["Line", "Description", "Amount"])
+    w.writerow([cell(f"Schedule E summary - {report_title(pid)} - {year}")]); w.writerow(["Line", "Description", "Amount"])
     for r in se["rows"]: w.writerow([r["line"], r["label"], f"{r['amount']:.2f}"])
     w.writerow([20, "Total expenses", f"{se['expenses']:.2f}"]); w.writerow([21, "Income or (loss)", f"{se['net']:.2f}"])
     resp = make_response(out.getvalue())
