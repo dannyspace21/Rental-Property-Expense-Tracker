@@ -3,7 +3,7 @@
 {% block content %}
 <div class="head"><h1>Recurring bills</h1></div>
 <p class="note">Set up bills that repeat, like HOA dues, the management fee, insurance or the mortgage. Each time one comes due it's
-added to <b>Money</b> automatically. If a bill was different one month, just tap that payment in Money and change it.</p>
+added to <b>Money</b> automatically. (For the mortgage, importing your monthly statements on the <a href="{{ url_for('mortgage_page') }}">Mortgage</a> page is more accurate.) If a bill was different one month, just tap that payment in Money and change it.</p>
 
 <section class="card"><div class="head"><h2>Your bills</h2><span class="badge">≈ {{ monthly|money }} / month</span></div>
 {% if rows %}<ul class="list">{% for r in rows %}

@@ -57,10 +57,16 @@ def find_transactions(pid=None, year=None, kind=None, category=None, vendor_id=N
     if limit: sql.append(f" LIMIT {int(limit)}")
     return db().execute("".join(sql), args).fetchall()
 
+def is_cash(r):
+    """False for taxes/insurance your lender paid out of escrow: the escrow
+    deposit already counted as cash out, so these only matter for taxes."""
+    return not r["from_escrow"]
+
 def totals(rows):
-    inc = sum(r["amount"] for r in rows if r["kind"] == "income")
-    exp = sum(r["amount"] for r in rows if r["kind"] == "expense")
-    return {"income": inc, "expense": exp, "net": inc - exp, "count": len(rows)}
+    inc = sum(r["amount"] for r in rows if r["kind"] == "income" and is_cash(r))
+    exp = sum(r["amount"] for r in rows if r["kind"] == "expense" and is_cash(r))
+    return {"income": inc, "expense": exp, "net": inc - exp, "count": len(rows),
+            "escrow_paid": sum(r["amount"] for r in rows if not is_cash(r))}
 
 
 # ---------- YEAR SUMMARY & CHARTS ----------
@@ -70,6 +76,7 @@ def year_summary(pid, year):
     by_month = [{"name": MONTHS[i][:3], "income": 0.0, "expense": 0.0} for i in range(12)]
     by_cat = defaultdict(float)
     for r in rows:
+        if not is_cash(r): continue
         m = int(r["date"][5:7]) - 1
         by_month[m][r["kind"]] += r["amount"]
         if r["kind"] == "expense": by_cat[r["category"]] += r["amount"]
@@ -271,13 +278,33 @@ def pdf_report(pid, year, title):
     has_multi = pid is None
     for kind, label in (("income", "Income"), ("expense", "Expenses")):
         items = [r for r in reversed(s["rows"]) if r["kind"] == kind]
+        cash = [r for r in items if is_cash(r)]
         out.append(Paragraph(label, st["Heading2"]))
         head = ["Date", "Description", "Category"] + (["Property"] if has_multi else []) + ["Amount"]
-        rows = [head] + [[r["date"], P(r["description"] + (f" ({r['vendor']})" if r["vendor"] else "")), P(r["category"])]
+        rows = [head] + [[r["date"], P(r["description"] + (f" ({r['vendor']})" if r["vendor"] else "") +
+                                         ("" if is_cash(r) else " [paid from escrow]")), P(r["category"])]
                          + ([P(r["property"])] if has_multi else []) + [money(r["amount"])] for r in items]
         rows.append(["", f"Total {label.lower()}", ""] + ([""] if has_multi else []) +
-                    [money(sum(r["amount"] for r in items))])
+                    [money(sum(r["amount"] for r in cash))])
         widths = [62, 220, 110, 70, 70] if has_multi else [62, 290, 100, 80]
         out += [table(rows, widths, [len(head) - 1], True), Spacer(1, 14)]
     doc.build(out); buf.seek(0)
     return buf
+
+
+# ---------- MORTGAGE ----------
+MORTGAGE_CATS = ("Mortgage interest", "Mortgage principal", "Mortgage escrow")
+
+def mortgage_year(pid, year):
+    """Mortgage totals for a year: what went to interest, principal and escrow,
+    and what the lender paid out of escrow for taxes and insurance."""
+    rows = find_transactions(pid=pid, year=year)
+    out = {c: sum(r["amount"] for r in rows if r["category"] == c) for c in MORTGAGE_CATS}
+    out["escrow_paid"] = sum(r["amount"] for r in rows if r["from_escrow"])
+    return out
+
+def mortgage_docs(pid, kind=None):
+    where, args = prop_filter(pid, "d.property_id")
+    if kind: where += " AND d.kind=?"; args.append(kind)
+    return db().execute(f"SELECT d.*, p.name AS property FROM mortgage_docs d JOIN properties p ON p.id=d.property_id"
+                        f" WHERE 1=1{where} ORDER BY d.doc_date DESC, d.id DESC", args).fetchall()

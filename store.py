@@ -12,11 +12,12 @@ from flask import g
 DATA_DIR = os.environ.get("DATA_DIR", "data")            # folder where the database lives
 DB_FILE = os.path.join(DATA_DIR, "expenses.db")          # the database file itself
 RECEIPT_DIR = os.path.join(DATA_DIR, "receipts")         # uploaded receipt photos / PDFs
+UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")           # PDFs waiting on the review screen
 BACKUP_DIR = os.path.join(DATA_DIR, "backups")           # automatic daily copies
 KEEP_BACKUPS = int(os.environ.get("KEEP_BACKUPS", "14")) # how many daily copies to keep
 TIMEZONE = os.environ.get("TZ", "America/New_York")      # so "today" matches your clock
 DEFAULT_PROPERTY = os.environ.get("PROPERTY_NAME", "My Rental Property")  # name used on first start
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 MONTHS = ["January", "February", "March", "April", "May", "June", "July",
           "August", "September", "October", "November", "December"]
@@ -35,6 +36,7 @@ EXPENSE_CATEGORIES = [
     ("Property taxes", 16, "Real estate taxes"),
     ("Mortgage interest", 12, "Interest part of the mortgage payment"),
     ("Mortgage principal", None, "Principal part of the payment - not deductible, but it is cash out"),
+    ("Mortgage escrow", None, "Escrow part of the payment - deducted when the lender pays your taxes/insurance (Form 1098 import)"),
     ("Utilities", 17, "Water, trash, electric, gas you pay"),
     ("Supplies", 15, "Small items: bulbs, batteries, tools, office supplies"),
     ("Advertising", 5, "Listing sites, signs"),
@@ -56,9 +58,9 @@ INCOME_NAMES = [c[0] for c in INCOME_CATEGORIES]
 CATEGORY_LINE = {c[0]: c[1] for c in EXPENSE_CATEGORIES + INCOME_CATEGORIES}
 CATEGORY_HINT = {c[0]: c[2] for c in EXPENSE_CATEGORIES + INCOME_CATEGORIES}
 # Not "operating" costs: left out of NOI / cap rate (they are financing or capital).
-NON_OPERATING = {"Mortgage interest", "Mortgage principal", "Other interest", "Capital improvement"}
+NON_OPERATING = {"Mortgage interest", "Mortgage principal", "Mortgage escrow", "Other interest", "Capital improvement"}
 # Payments that never need a 1099-NEC (banks, insurers, government, HOA, utilities)
-NO_1099 = ("Mortgage interest", "Mortgage principal", "Other interest", "Insurance", "Property taxes", "Utilities", "HOA dues")
+NO_1099 = ("Mortgage interest", "Mortgage principal", "Mortgage escrow", "Other interest", "Insurance", "Property taxes", "Utilities", "HOA dues")
 
 SCHEDULE_E_LINES = [
     (3, "Rents received"), (5, "Advertising"), (6, "Auto and travel"), (7, "Cleaning and maintenance"),
@@ -140,7 +142,8 @@ CREATE TABLE IF NOT EXISTS transactions (                     -- every dollar in
     vendor_id INTEGER REFERENCES vendors(id) ON DELETE SET NULL,
     lease_id INTEGER REFERENCES leases(id) ON DELETE SET NULL,
     recurring_id INTEGER REFERENCES recurring(id) ON DELETE SET NULL,
-    depr_years REAL, created TEXT DEFAULT CURRENT_TIMESTAMP);
+    depr_years REAL, created TEXT DEFAULT CURRENT_TIMESTAMP,
+    from_escrow INTEGER DEFAULT 0);                         -- 1 = paid by the lender from escrow (not extra cash out)
 CREATE INDEX IF NOT EXISTS tx_prop_date ON transactions(property_id, date);
 CREATE TABLE IF NOT EXISTS attachments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -150,6 +153,11 @@ CREATE TABLE IF NOT EXISTS tasks (                            -- maintenance rem
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
     title TEXT NOT NULL, every_months INTEGER DEFAULT 0, next_due TEXT, done INTEGER DEFAULT 0, notes TEXT);
+CREATE TABLE IF NOT EXISTS mortgage_docs (                   -- imported mortgage statements and Forms 1098
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('statement','1098')), doc_date TEXT, year INTEGER,
+    stored TEXT, filename TEXT, sha TEXT, data TEXT, created TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS task_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
@@ -161,6 +169,7 @@ CREATE TABLE IF NOT EXISTS task_log (
 def init_db():
     """Create tables on first start, and upgrade an older database if found."""
     os.makedirs(RECEIPT_DIR, exist_ok=True)
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
     conn = connect()
     version = conn.execute("PRAGMA user_version").fetchone()[0]
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
@@ -173,6 +182,9 @@ def init_db():
         conn.execute("INSERT INTO properties (name) VALUES (?)", (DEFAULT_PROPERTY,))
     if version < SCHEMA_VERSION and "expenses" in tables:
         migrate_v1(conn)
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(transactions)")}
+    if "from_escrow" not in cols:                        # added in version 3
+        conn.execute("ALTER TABLE transactions ADD COLUMN from_escrow INTEGER DEFAULT 0")
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     conn.commit()
     conn.close()

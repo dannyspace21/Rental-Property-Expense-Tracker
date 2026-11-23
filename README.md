@@ -23,6 +23,15 @@ never sent anywhere. It's built to be used from your phone: open it in your phon
   once and they're added automatically each time they come due.
 - **Search and filter** by text, year, category, vendor, date range or amount, then **export to CSV**.
 
+**Mortgage (PennyMac or any US lender)**
+- **Import your monthly mortgage statement (PDF).** The app reads the *Past Payments Breakdown* that every
+  US mortgage statement is required to include, and splits the payment into **interest** (tax deductible),
+  **principal** and **escrow**. You check the numbers on a review screen before anything is saved.
+- **Import your year-end Form 1098 (PDF).** The app reads box 1 (mortgage interest), box 5 (mortgage insurance)
+  and the property taxes and insurance your lender paid from escrow. It compares them with what's recorded and
+  fills in the difference, so your Schedule E matches what your lender reported to the IRS.
+- Duplicate files are detected, every import can be undone, and you can **type the numbers in** if a PDF can't be read.
+
 **Rent & tenants**
 - **Leases** with tenant contact info, rent, deposit, due day and grace period.
 - **This month at a glance**: paid, due, late or partial. Late rent shows up on the Home screen.
@@ -49,9 +58,52 @@ never sent anywhere. It's built to be used from your phone: open it in your phon
 - **Automatic daily backups** in `data/backups` (the last 14 days are kept).
 - **One-click backup** download (database + receipts as a .zip).
 - **Excel import** from the original spreadsheet layout.
+- Upgrades happen automatically on start; your data is copied to `data/backup-before-upgrade.db` first.
 - Light and dark mode, and works on any screen size. No login: it's meant for your private home network.
 
 <img src="docs/screenshots/desktop-home.png" alt="Home screen on a desktop">
+
+## Mortgage statement & Form 1098 import
+
+<p>
+<img src="docs/screenshots/phone-mortgage.png" width="230" alt="Mortgage page">
+<img src="docs/screenshots/phone-statement-review.png" width="230" alt="Checking an imported statement">
+<img src="docs/screenshots/phone-1098-review.png" width="230" alt="Comparing a Form 1098">
+</p>
+
+1. Download the PDF from your lender's website. For PennyMac, sign in and open **Statements & Documents**.
+   Monthly statements are there, and your **Form 1098** appears by January 31.
+2. In the app go to **More → Mortgage**, pick the property and the PDF, and tap **Read statement** (or **Read 1098**).
+3. Check the numbers on the review screen and tap **Save**.
+
+**What gets recorded**
+
+| From the monthly statement | Category | On Schedule E? | In cash flow? |
+|---|---|---|---|
+| Interest | Mortgage interest | Yes (line 12) | Yes |
+| Principal | Mortgage principal | No | Yes |
+| Escrow | Mortgage escrow | No (see below) | Yes |
+| Fees / late charges | Other | Yes (line 19) | Yes |
+
+| From Form 1098 | What happens |
+|---|---|
+| Box 1 - mortgage interest | Compared with the interest already recorded for that year; the difference is added as an adjustment |
+| Property taxes paid from escrow | Added as *Property taxes*, marked **paid from escrow** |
+| Insurance paid from escrow | Added as *Insurance*, marked **paid from escrow** (if the 1098 doesn't list it, take it from your annual escrow statement) |
+| Box 5 - mortgage insurance premiums | Added as *Insurance*, marked **paid from escrow** |
+
+**Why "paid from escrow"?** The escrow part of each payment is real money leaving your account, so it counts in
+cash flow. But the tax deduction happens when your lender actually *pays* the tax bill or insurance out of escrow.
+Entries marked *paid from escrow* count on Schedule E but aren't counted a second time in cash flow.
+You can also tick this option yourself when adding a Property taxes or Insurance expense.
+
+**Good to know**
+- Works with PDFs downloaded from the lender's website. A photo or scan has no readable text, so you'd type the numbers in.
+- The reader looks for the standard section names and box labels, not one exact page layout, so it should work for
+  PennyMac and most other US servicers. If something comes out wrong, fix it on the review screen.
+- Importing the same file twice is blocked. Importing a second 1098 for the same year replaces the first one's adjustments.
+- **Undo** on the Mortgage page removes an import and every entry it created.
+- If you set up a recurring bill for the mortgage, pause it when you start importing statements (the app warns you).
 
 ## Quick start
 1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop) (or Docker on your Pi) and start it.
@@ -98,6 +150,7 @@ Plain Python (Flask + SQLite), with no build step and no JavaScript framework.
 | `app.py` | The web pages and form handling |
 | `store.py` | Database tables, categories, the upgrade from v1, daily backups and recurring bills |
 | `reports.py` | Totals, rent roll, depreciation, Schedule E, investment metrics and the PDF |
+| `mortgage.py` | Reads mortgage statements and Form 1098 PDFs (with `pypdf`) |
 | `templates/` | One HTML file per page (`base.html` holds the header and the phone tab bar) |
 | `static/` | `style.css`, a small `app.js` and the app icons |
 

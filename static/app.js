@@ -23,6 +23,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const cat = entry.querySelector("select[name=category_expense]");
       const cap = document.getElementById("capital");
       if (cap) cap.classList.toggle("hide", kind !== "expense" || cat.value !== "Capital improvement");
+      const esc = document.getElementById("escrow-opt");
+      if (esc) esc.classList.toggle("hide", kind !== "expense" || !["Property taxes", "Insurance"].includes(cat.value));
       const hint = document.getElementById("cat-hint");
       const sel = entry.querySelector(`select[name=category_${kind}]`);
       if (hint && sel) hint.textContent = sel.selectedOptions[0]?.dataset.hint || "";

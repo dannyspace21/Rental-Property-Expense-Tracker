@@ -39,6 +39,15 @@ Then open your browser to **http://localhost:8080**
 - Tap any item in **Money** to edit or delete it.
 - **Reports** has your Schedule E summary and a **PDF report** button for tax time.
 
+## Import your mortgage statements (PennyMac)
+1. Sign in to PennyMac on their website and open **Statements & Documents**. Download the monthly statement PDF.
+2. In the app: **More → Mortgage**. Choose the property and the PDF, then tap **Read statement**.
+3. Check the interest, principal and escrow amounts, then tap **Save payment**.
+4. Each January, do the same with your **Form 1098** (tap **Read 1098**). The app compares it with what you
+   recorded during the year and fills in any difference.
+
+Made a mistake? Tap **Undo** next to the import on the Mortgage page.
+
 ## Load your old Excel data
 Go to **More**, scroll to **Import from Excel**, choose the property and your file, and tap Import.
 

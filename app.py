@@ -13,14 +13,14 @@ recurring bills, rent, tenants, maintenance, vendors and tax reports.
 Data is saved in data/expenses.db and receipts in data/receipts/ (no login,
 meant for your home network).
 """
-import os, io, csv, uuid, zipfile, tempfile, sqlite3, datetime, re, shutil
+import os, io, csv, uuid, zipfile, tempfile, sqlite3, datetime, re, shutil, json, hashlib
 from flask import (Flask, render_template, request, redirect, url_for, flash, send_file, abort,
                    send_from_directory, make_response)
 from urllib.parse import urlsplit
 from werkzeug.utils import secure_filename
 from openpyxl import load_workbook
 
-import store, reports
+import store, reports, mortgage
 from store import db, today, MONTHS
 from reports import money
 
@@ -36,6 +36,7 @@ def nice_date(text):
     try: d = datetime.date.fromisoformat(str(text))
     except ValueError: return text or ""
     return f"{d:%b} {d.day}" + ("" if d.year == today().year else f", {d.year}")
+ESCROW_PAYABLE = ("Property taxes", "Insurance")                       # bills a lender can pay from escrow
 RECEIPT_TYPES = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif", ".pdf"}
 
 
@@ -179,11 +180,11 @@ def money_list():
 def money_csv():
     rows = filtered(money_filters(), current_pid())
     out = io.StringIO(); w = csv.writer(out)
-    w.writerow(["Date", "Type", "Property", "Description", "Category", "Schedule E line", "Amount", "Vendor", "Tenant", "Notes", "Receipts"])
+    w.writerow(["Date", "Type", "Property", "Description", "Category", "Schedule E line", "Amount", "Vendor", "Tenant", "Notes", "Receipts", "Paid from escrow"])
     for r in rows:
         w.writerow([r["date"], r["kind"].title(), r["property"], r["description"], r["category"],
                     store.CATEGORY_LINE.get(r["category"]) or "", f"{r['amount']:.2f}", r["vendor"] or "",
-                    r["tenant"] or "", r["notes"] or "", r["receipts"]])
+                    r["tenant"] or "", r["notes"] or "", r["receipts"], "yes" if r["from_escrow"] else ""])
     resp = make_response(out.getvalue())
     resp.headers["Content-Type"] = "text/csv; charset=utf-8"
     resp.headers["Content-Disposition"] = f"attachment; filename=transactions-{today().isoformat()}.csv"
@@ -199,7 +200,7 @@ def money_form(tx_id=None):
     d = {"kind": a.get("kind", "expense"), "date": valid_date(a.get("date"), today().isoformat()),
          "category": a.get("category", ""), "amount": a.get("amount", ""), "description": a.get("description", ""),
          "property_id": a.get("property", type=int) or default_pid(), "lease_id": a.get("lease", type=int),
-         "vendor": a.get("vendor", ""), "notes": "", "depr_years": 27.5}
+         "vendor": a.get("vendor", ""), "notes": "", "depr_years": 27.5, "from_escrow": 0}
     if tx: d.update({k: tx[k] for k in tx.keys() if k in d}); d["vendor"] = tx["vendor"] or ""
     files = db().execute("SELECT * FROM attachments WHERE transaction_id=?", (tx_id,)).fetchall() if tx else []
     vendors = [r["name"] for r in db().execute("SELECT name FROM vendors ORDER BY name")]
@@ -213,7 +214,7 @@ def money_save():
     names = store.INCOME_NAMES if kind == "income" else store.EXPENSE_NAMES
     category = f.get(f"category_{kind}") or f.get("category")
     if category not in names: category = "Other income" if kind == "income" else "Other"
-    amount = abs(num(f.get("amount")))
+    amount = num(f.get("amount"))                     # a minus sign records a refund or credit
     if not amount:
         flash("Please enter an amount."); return redirect(request.referrer or url_for("money_form"))
     lease_id = f.get("lease_id", type=int) if kind == "income" else None
@@ -225,7 +226,8 @@ def money_save():
             "description": clean("description") or category, "category": category, "amount": amount,
             "notes": clean("notes"), "vendor_id": vendor_id_for(f.get("vendor")) if kind == "expense" else None,
             "lease_id": lease_id,
-            "depr_years": num(f.get("depr_years")) or 27.5 if category == "Capital improvement" else None}
+            "depr_years": num(f.get("depr_years")) or 27.5 if category == "Capital improvement" else None,
+            "from_escrow": 1 if f.get("from_escrow") and category in ESCROW_PAYABLE and kind == "expense" else 0}
     tx_id = f.get("id", type=int)
     if tx_id:
         db().execute(f"UPDATE transactions SET {', '.join(k + '=?' for k in vals)} WHERE id=?", (*vals.values(), tx_id))
@@ -565,6 +567,209 @@ def schedule_e_csv(year):
     resp.headers["Content-Type"] = "text/csv; charset=utf-8"
     resp.headers["Content-Disposition"] = f"attachment; filename=schedule-e-{year}.csv"
     return resp
+
+
+# ---------- MORTGAGE: statement & Form 1098 import ----------
+@app.route("/mortgage")
+def mortgage_page():
+    pid, year = current_pid(), year_arg()
+    docs = reports.mortgage_docs(pid)
+    return render_template("mortgage.html", year=year, years=reports.years_with_data(pid), m=reports.mortgage_year(pid, year),
+                           statements=[d for d in docs if d["kind"] == "statement"], forms=[d for d in docs if d["kind"] == "1098"],
+                           data={d["id"]: json.loads(d["data"] or "{}") for d in docs}, default_pid=default_pid())
+
+def take_upload():
+    """Save an uploaded PDF until the review screen is confirmed. Returns (stored name, file name, sha, text)."""
+    cutoff = datetime.datetime.now().timestamp() - 24 * 3600     # tidy up reviews that were never saved
+    for name in os.listdir(store.UPLOAD_DIR):
+        path = os.path.join(store.UPLOAD_DIR, name)
+        if os.path.getmtime(path) < cutoff: os.remove(path)
+    f = request.files.get("file")
+    if not f or not f.filename: return None
+    data = f.read()
+    if not data.startswith(b"%PDF"):
+        flash("That doesn't look like a PDF. Download the statement from your lender's website as a PDF and try again.")
+        return False
+    sha = hashlib.sha256(data).hexdigest()
+    dup = db().execute("SELECT kind, doc_date FROM mortgage_docs WHERE sha=?", (sha,)).fetchone()
+    if dup:
+        flash(f"You already imported this file (dated {nice_date(dup['doc_date'])}). Nothing was changed.")
+        return False
+    stored = f"{uuid.uuid4().hex}.pdf"
+    with open(os.path.join(store.UPLOAD_DIR, stored), "wb") as out: out.write(data)
+    return stored, secure_filename(f.filename) or "statement.pdf", sha, mortgage.pdf_text(data)
+
+def keep_upload(stored):
+    """Move a reviewed PDF into the receipts folder. Returns its new name (or None)."""
+    stored = secure_filename(stored or "")
+    src = os.path.join(store.UPLOAD_DIR, stored)
+    if not stored or not os.path.exists(src): return None
+    os.replace(src, os.path.join(store.RECEIPT_DIR, stored))
+    return stored
+
+@app.route("/mortgage/statement", methods=["GET", "POST"])
+def statement_review():
+    """Upload a monthly statement (POST) or type one in (GET), then review before saving."""
+    pid = request.values.get("property_id", type=int) or default_pid()
+    p, up, warn = {}, None, []
+    if request.method == "POST":
+        up = take_upload()
+        if up is False: return redirect(url_for("mortgage_page"))
+        if up:
+            if not up[3].strip():
+                warn.append("This PDF has no readable text (it may be a scan or photo). Please type the numbers in below.")
+            else:
+                p = mortgage.parse_statement(up[3])
+                if not p["found"]:
+                    warn.append("We couldn't find the payment breakdown in this PDF. Please type the numbers in from the statement.")
+                elif p["source"] == "due":
+                    warn.append("We couldn't find the “Past Payments Breakdown”, so these numbers come from “Explanation of Amount Due” "
+                                "(your next payment). Check them against what you actually paid.")
+    paid = p.get("paid_date") or today().replace(day=1)
+    others = db().execute("SELECT SUM(amount) FROM transactions WHERE property_id=? AND category IN (?,?,?) AND substr(date,1,7)=?",
+                          (pid, *reports.MORTGAGE_CATS, paid.isoformat()[:7])).fetchone()[0]
+    if others:
+        warn.append(f"You already have {money(others)} of mortgage entries in {MONTHS[paid.month-1]} {paid.year} for this property. "
+                    "Saving will add more (check you're not importing the same month twice).")
+    bills = db().execute("SELECT description FROM recurring WHERE property_id=? AND active=1 AND category IN (?,?,?)",
+                         (pid, *reports.MORTGAGE_CATS)).fetchall()
+    if bills:
+        warn.append("You also have a recurring bill for the mortgage (" + ", ".join(b["description"] for b in bills) +
+                    "). Pause it on the Recurring bills page so payments aren't counted twice.")
+    lenders = [r["name"] for r in db().execute("SELECT name FROM vendors ORDER BY name")]
+    return render_template("statement_review.html", p=p, paid=paid, up=up, warn=warn, pid=pid, lenders=lenders,
+                           lender=p.get("lender") or last_lender(pid))
+
+def last_lender(pid):
+    row = db().execute("SELECT v.name FROM transactions t JOIN vendors v ON v.id=t.vendor_id WHERE t.property_id=? "
+                       "AND t.category IN (?,?,?) ORDER BY t.date DESC LIMIT 1", (pid, *reports.MORTGAGE_CATS)).fetchone()
+    return row["name"] if row else ""
+
+@app.route("/mortgage/statement/save", methods=["POST"])
+def statement_save():
+    f = request.form
+    pid = f.get("property_id", type=int) or default_pid()
+    date = valid_date(f.get("paid_date"), today().isoformat())
+    lender = clean("lender")
+    label = f"{lender or 'Mortgage'} · {MONTHS[int(date[5:7]) - 1]} {date[:4]} payment"
+    vendor = vendor_id_for(lender) if lender else None
+    parts = [("interest", "Mortgage interest", "interest"), ("principal", "Mortgage principal", "principal"),
+             ("escrow", "Mortgage escrow", "escrow"), ("fees", "Other", "fees & charges")]
+    ids, amounts = [], {}
+    for field, cat, word in parts:
+        amt = num(f.get(field))
+        amounts[field] = amt
+        if not amt: continue
+        ids.append(db().execute("INSERT INTO transactions (property_id,kind,date,description,category,amount,vendor_id,notes) "
+                                "VALUES (?,?,?,?,?,?,?,?)", (pid, "expense", date, f"{label}: {word}", cat, amt, vendor,
+                                                              "Imported from mortgage statement")).lastrowid)
+    if not ids:
+        flash("Nothing to save: all amounts were zero."); return redirect(url_for("mortgage_page"))
+    stored = keep_upload(f.get("stored"))
+    if stored:
+        db().execute("INSERT INTO attachments (transaction_id, filename, stored) VALUES (?,?,?)", (ids[0], clean("filename"), stored))
+    extra = {k: f.get(k) for k in ("principal_balance", "escrow_balance", "statement_date")}
+    db().execute("INSERT INTO mortgage_docs (property_id,kind,doc_date,year,stored,filename,sha,data) VALUES (?,?,?,?,?,?,?,?)",
+                 (pid, "statement", date, int(date[:4]), stored, clean("filename"), f.get("sha") or None,
+                  json.dumps({"tx": ids, **amounts, **extra})))
+    db().commit()
+    flash(f"Saved {MONTHS[int(date[5:7]) - 1]} payment: interest {money(amounts['interest'])}, principal "
+          f"{money(amounts['principal'])}, escrow {money(amounts['escrow'])}.")
+    return redirect(url_for("mortgage_page", year=date[:4]))
+
+def recorded(pid, year, category, skip_ids=()):
+    """How much is already recorded for a category in a year (ignoring entries a previous 1098 import made)."""
+    rows = db().execute("SELECT id, amount FROM transactions WHERE property_id=? AND category=? AND substr(date,1,4)=?",
+                        (pid, category, str(year))).fetchall()
+    return round(sum(r["amount"] for r in rows if r["id"] not in skip_ids), 2)
+
+def previous_1098(pid, year):
+    row = db().execute("SELECT * FROM mortgage_docs WHERE kind='1098' AND property_id=? AND year=?", (pid, year)).fetchone()
+    return row, (set(json.loads(row["data"] or "{}").get("tx", [])) if row else set())
+
+@app.route("/mortgage/1098", methods=["GET", "POST"])
+def form1098_review():
+    """Upload a Form 1098 (POST) or type it in (GET); compare it with what's recorded."""
+    pid = request.values.get("property_id", type=int) or default_pid()
+    p, up, warn = {}, None, []
+    if request.method == "POST":
+        up = take_upload()
+        if up is False: return redirect(url_for("mortgage_page"))
+        if up:
+            if not up[3].strip(): warn.append("This PDF has no readable text (it may be a scan or photo). Please type the boxes in below.")
+            else:
+                p = mortgage.parse_1098(up[3])
+                if not p["found"]: warn.append("We couldn't find box 1 (mortgage interest) in this PDF. Please type the amounts in.")
+    year = request.values.get("year", type=int) or p.get("year") or (today().year - 1)
+    prev, skip = previous_1098(pid, year)
+    if prev: warn.append(f"You already imported a 1098 for {year}. Saving replaces the entries it added.")
+    rows = []
+    for key, label, cat, src in (("interest", "Mortgage interest (box 1)", "Mortgage interest", p.get("interest")),
+                                 ("taxes", "Property taxes paid from escrow", "Property taxes", p.get("taxes")),
+                                 ("insurance", "Insurance paid from escrow", "Insurance", p.get("insurance"))):
+        have = recorded(pid, year, cat, skip)
+        rows.append({"key": key, "label": label, "src": src, "have": have,
+                     "add": round(src - have, 2) if src is not None else None})
+    rows.append({"key": "mip", "label": "Mortgage insurance premiums (box 5)", "src": p.get("mip"), "have": None,
+                 "add": p.get("mip") or None})
+    return render_template("f1098_review.html", p=p, up=up, warn=warn, pid=pid, year=year, rows=rows,
+                           lender=p.get("lender") or last_lender(pid))
+
+@app.route("/mortgage/1098/save", methods=["POST"])
+def form1098_save():
+    f = request.form
+    pid = f.get("property_id", type=int) or default_pid()
+    year = f.get("year", type=int) or today().year - 1
+    prev, skip = previous_1098(pid, year)
+    if prev:                                             # replace what an earlier 1098 import for this year added
+        db().execute(f"DELETE FROM transactions WHERE id IN ({','.join('?' * len(skip)) or 'NULL'})", tuple(skip))
+        db().execute("DELETE FROM mortgage_docs WHERE id=?", (prev["id"],))
+        if prev["stored"]:
+            try: os.remove(os.path.join(store.RECEIPT_DIR, prev["stored"]))
+            except OSError: pass
+    date, lender = f"{year}-12-31", clean("lender")
+    vendor = vendor_id_for(lender) if lender else None
+    ids = []
+    for key, cat, desc, escrow in (("interest", "Mortgage interest", "Mortgage interest - Form 1098 adjustment", 0),
+                                   ("taxes", "Property taxes", "Property taxes paid from escrow (Form 1098)", 1),
+                                   ("insurance", "Insurance", "Insurance paid from escrow", 1),
+                                   ("mip", "Insurance", "Mortgage insurance premiums (Form 1098 box 5)", 1)):
+        amt = num(f.get("add_" + key))
+        if not amt: continue
+        ids.append(db().execute("INSERT INTO transactions (property_id,kind,date,description,category,amount,vendor_id,notes,from_escrow)"
+                                " VALUES (?,?,?,?,?,?,?,?,?)", (pid, "expense", date, desc, cat, amt, vendor,
+                                                                f"Form 1098 for {year}", escrow)).lastrowid)
+    stored = keep_upload(f.get("stored"))
+    if stored and ids:
+        db().execute("INSERT INTO attachments (transaction_id, filename, stored) VALUES (?,?,?)", (ids[0], clean("filename"), stored))
+    box = {k: num_or_none(f.get(k)) for k in ("box1", "box2", "box5", "taxes", "insurance")}
+    db().execute("INSERT INTO mortgage_docs (property_id,kind,doc_date,year,stored,filename,sha,data) VALUES (?,?,?,?,?,?,?,?)",
+                 (pid, "1098", date, year, stored, clean("filename"), f.get("sha") or None, json.dumps({"tx": ids, **box})))
+    db().commit()
+    flash(f"Form 1098 for {year} saved. Your Schedule E for {year} now matches it." if ids else
+          f"Form 1098 for {year} saved. Everything already matched, so nothing needed adjusting.")
+    return redirect(url_for("mortgage_page", year=year))
+
+@app.route("/mortgage/doc/<int:doc_id>")
+def mortgage_doc_file(doc_id):
+    d = db().execute("SELECT * FROM mortgage_docs WHERE id=?", (doc_id,)).fetchone() or abort(404)
+    if not d["stored"]: abort(404)
+    return send_from_directory(os.path.abspath(store.RECEIPT_DIR), d["stored"], download_name=d["filename"] or "document.pdf")
+
+@app.route("/mortgage/doc/<int:doc_id>/delete", methods=["POST"])
+def mortgage_doc_delete(doc_id):
+    """Undo an import: removes the entries it created and the saved PDF."""
+    d = db().execute("SELECT * FROM mortgage_docs WHERE id=?", (doc_id,)).fetchone() or abort(404)
+    ids = json.loads(d["data"] or "{}").get("tx", [])
+    if ids:
+        db().execute(f"DELETE FROM attachments WHERE transaction_id IN ({','.join('?' * len(ids))})", ids)
+        db().execute(f"DELETE FROM transactions WHERE id IN ({','.join('?' * len(ids))})", ids)
+    db().execute("DELETE FROM mortgage_docs WHERE id=?", (doc_id,)); db().commit()
+    if d["stored"]:
+        try: os.remove(os.path.join(store.RECEIPT_DIR, d["stored"]))
+        except OSError: pass
+    flash("Import undone: its entries were removed.")
+    return redirect(url_for("mortgage_page", year=d["year"]))
 
 
 # ---------- MORE: import & backup ----------

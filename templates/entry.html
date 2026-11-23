@@ -26,6 +26,9 @@
         {% for c in INC_CATS %}<option data-hint="{{ c[2] }}" {{ 'selected' if d.category==c[0] }}>{{ c[0] }}</option>{% endfor %}</select></div>
       <div class="hint" id="cat-hint"></div></div>
 
+    <div id="escrow-opt" class="hide"><label class="check"><input type="checkbox" name="from_escrow" value="1" {{ 'checked' if d.from_escrow }}> My lender paid this from escrow</label>
+      <div class="hint">Counts on Schedule E, but not again in cash flow (the escrow part of your mortgage payment already did).</div></div>
+
     <div id="capital" class="hide"><label for="depr_years">Depreciate over</label>
       <select id="depr_years" name="depr_years">{% for y, label in depr %}<option value="{{ y }}" {{ 'selected' if (d.depr_years or 27.5)==y }}>{{ label }}</option>{% endfor %}</select>
       <div class="hint">Big upgrades aren't deducted all at once. The Reports page spreads the cost over these years for your taxes.</div></div>

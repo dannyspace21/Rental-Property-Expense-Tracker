@@ -35,8 +35,8 @@
 <li><a class="rowlink" href="{{ url_for('money_form', tx_id=r.id, next=request.full_path) }}">
   <span class="dot {{ 'in' if r.kind=='income' }}">{{ icon('in' if r.kind=='income' else 'out') }}</span>
   <span class="main"><span class="t">{{ r.description }}</span>
-    <small>{{ r.date|nice }} · {{ r.category }}{% if r.vendor %} · {{ r.vendor }}{% endif %}{% if r.tenant %} · {{ r.tenant }}{% endif %}{% if show_prop %} · {{ r.property }}{% endif %}{% if r.recurring_id %} · 🔁{% endif %}{% if r.receipts %} · 📎{% endif %}</small></span>
-  <span class="amt {{ 'pos' if r.kind=='income' else '' }}">{{ '+' if r.kind=='income' else '−' }}{{ r.amount|money }}</span>
+    <small>{{ r.date|nice }} · {{ r.category }}{% if r.vendor %} · {{ r.vendor }}{% endif %}{% if r.tenant %} · {{ r.tenant }}{% endif %}{% if show_prop %} · {{ r.property }}{% endif %}{% if r.recurring_id %} · 🔁{% endif %}{% if r.receipts %} · 📎{% endif %}{% if r.from_escrow %} · <span class="badge">paid from escrow</span>{% endif %}</small></span>
+  <span class="amt {{ 'pos' if r.kind=='income' else '' }}{{ ' muted' if r.from_escrow }}">{{ '+' if r.kind=='income' else '−' }}{{ r.amount|money }}</span>
 </a></li>
 {%- endmacro %}
 
@@ -53,8 +53,8 @@
 <div class="legend"><span><i style="background:var(--good)"></i>Income</span><span><i style="background:var(--bad)"></i>Expenses</span></div></div>
 {%- endmacro %}
 
-{% macro property_select(selected, label='Property') -%}
-{% if props|length > 1 %}<div id="prop-field"><label for="property_id">{{ label }}</label>
-<select id="property_id" name="property_id">{% for p in props %}<option value="{{ p.id }}" {{ 'selected' if p.id==selected }}>{{ p.name }}</option>{% endfor %}</select></div>
+{% macro property_select(selected, label='Property', id='property_id') -%}
+{% if props|length > 1 %}<div id="{{ 'prop-field' if id=='property_id' else id + '-field' }}"><label for="{{ id }}">{{ label }}</label>
+<select id="{{ id }}" name="property_id">{% for p in props %}<option value="{{ p.id }}" {{ 'selected' if p.id==selected }}>{{ p.name }}</option>{% endfor %}</select></div>
 {% else %}<input type="hidden" name="property_id" value="{{ props[0].id }}">{% endif %}
 {%- endmacro %}

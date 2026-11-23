@@ -170,3 +170,5 @@ table.grid12 td:first-child,table.grid12 th:first-child{text-align:left;position
 .thumbs img{width:100%;height:100%;object-fit:cover}
 .hide{display:none!important}
 @media print{.top,.tabbar,.noprint,.btn{display:none!important} main{padding:0} .card{box-shadow:none;break-inside:avoid}}
+/* small icons inside messages and headings */
+.note svg,.flash svg,h1 svg,h2 svg,h3 svg{width:18px;height:18px;vertical-align:-3px;margin-right:4px;flex:none}

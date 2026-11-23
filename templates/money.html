@@ -36,6 +36,7 @@
   <div class="kpi main"><span>Net · {{ t.count }} item{{ 's' if t.count!=1 }}</span><b>{{ t.net|money }}</b></div>
 </div>
 
+{% if t.escrow_paid %}<p class="hint">{{ t.escrow_paid|money }} of taxes/insurance paid from escrow is listed below but not added to the totals (the escrow deposits already were).</p>{% endif %}
 <section class="card">
 {% if rows %}<ul class="list">
   {% set ns = namespace(m='') %}
