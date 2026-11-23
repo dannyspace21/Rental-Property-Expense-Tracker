@@ -1,0 +1,61 @@
+{% extends "base.html" %}{% from "macros.html" import icon, property_select with context %}
+{% block title %}{{ 'Edit' if tx else 'Add' }}{% endblock %}
+{% block content %}
+<div class="head"><h1>{{ 'Edit entry' if tx else 'Add income or expense' }}</h1></div>
+<form method="post" action="{{ url_for('money_save') }}" enctype="multipart/form-data" id="entry">
+  {% if tx %}<input type="hidden" name="id" value="{{ tx.id }}">{% endif %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <section class="card fields">
+    <div class="seg" role="radiogroup" aria-label="Type">
+      <input type="radio" name="kind" id="k-exp" value="expense" {{ 'checked' if d.kind!='income' }}><label for="k-exp">− Expense</label>
+      <input type="radio" name="kind" id="k-inc" value="income" {{ 'checked' if d.kind=='income' }}><label for="k-inc">+ Income</label>
+    </div>
+    <div><label for="amount">Amount</label>
+      <div class="amount-input"><span>$</span><input id="amount" name="amount" inputmode="decimal" required placeholder="0.00"
+        value="{{ '%.2f'|format(d.amount|float) if d.amount not in ('', None) else '' }}" {{ 'autofocus' if not tx }}></div></div>
+
+    <div data-kind="income"><label for="lease_id">From tenant</label>
+      <select id="lease_id" name="lease_id"><option value="">— Not from a tenant —</option>
+        {% for l in leases %}<option value="{{ l.id }}" data-rent="{{ '%.2f'|format(l.rent) }}" {{ 'selected' if d.lease_id==l.id }}>{{ l.tenant }}{% if l.unit %} ({{ l.unit }}){% endif %}{% if props|length>1 %} · {{ l.property }}{% endif %}</option>{% endfor %}</select>
+      {% if not leases %}<div class="hint">Tip: add a lease on the <a href="{{ url_for('rent') }}">Rent</a> page to track who has paid.</div>{% endif %}</div>
+
+    <div><label>Category</label>
+      <div data-kind="expense"><select name="category_expense" aria-label="Expense category">
+        {% for c in EXP_CATS %}<option data-hint="{{ c[2] }}{% if c[1] %} · Schedule E line {{ c[1] }}{% endif %}" {{ 'selected' if d.category==c[0] }}>{{ c[0] }}</option>{% endfor %}</select></div>
+      <div data-kind="income"><select name="category_income" aria-label="Income category">
+        {% for c in INC_CATS %}<option data-hint="{{ c[2] }}" {{ 'selected' if d.category==c[0] }}>{{ c[0] }}</option>{% endfor %}</select></div>
+      <div class="hint" id="cat-hint"></div></div>
+
+    <div id="capital" class="hide"><label for="depr_years">Depreciate over</label>
+      <select id="depr_years" name="depr_years">{% for y, label in depr %}<option value="{{ y }}" {{ 'selected' if (d.depr_years or 27.5)==y }}>{{ label }}</option>{% endfor %}</select>
+      <div class="hint">Big upgrades aren't deducted all at once. The Reports page spreads the cost over these years for your taxes.</div></div>
+
+    <div class="fields two">
+      <div><label for="date">Date</label><input type="date" id="date" name="date" value="{{ d.date }}" required></div>
+      <div><label for="description">Description <small>(optional)</small></label><input id="description" name="description" value="{{ d.description }}" placeholder="e.g. Water heater repair"></div>
+      <div data-kind="expense"><label for="vendor">Paid to <small>(optional)</small></label>
+        <input id="vendor" name="vendor" list="vendor-list" value="{{ d.vendor }}" placeholder="Pick or type a new name" autocomplete="off">
+        <datalist id="vendor-list">{% for v in vendors %}<option value="{{ v }}">{% endfor %}</datalist></div>
+      {{ property_select(d.property_id) }}
+    </div>
+
+    <div><label for="receipts">{{ icon('camera')|safe }} Receipt photo or PDF <small>(optional)</small></label>
+      <input type="file" id="receipts" name="receipts" accept="image/*,application/pdf" multiple>
+      {% if files %}<div class="thumbs" style="margin-top:10px">{% for a in files %}<figure>
+        <a class="f" href="{{ url_for('receipt', att_id=a.id) }}" target="_blank">{% if a.stored.rsplit('.',1)[-1] in ('jpg','jpeg','png','gif','webp') %}<img src="{{ url_for('receipt', att_id=a.id) }}" alt="{{ a.filename }}">{% else %}{{ a.stored.rsplit('.',1)[-1]|upper }}{% endif %}</a>
+        <button class="btn sm del" style="margin-top:4px;min-height:30px;padding:2px 8px" form="del-att-{{ a.id }}">Remove</button></figure>{% endfor %}</div>{% endif %}</div>
+
+    <div><label for="notes">Notes <small>(optional)</small></label><textarea id="notes" name="notes" rows="2">{{ d.notes or '' }}</textarea></div>
+  </section>
+  <div class="sticky-save row-btns">
+    <button class="btn" style="flex:1">{{ icon('check') }}{{ 'Save changes' if tx else 'Save' }}</button>
+    {% if not tx %}<button class="btn alt" name="again" value="1" style="flex:1;white-space:nowrap">Save + new</button>{% endif %}
+  </div>
+</form>
+{% if tx %}
+  {% for a in files %}<form id="del-att-{{ a.id }}" method="post" action="{{ url_for('receipt_delete', att_id=a.id) }}" data-confirm="Remove this receipt?"></form>{% endfor %}
+  <form method="post" action="{{ url_for('money_delete', tx_id=tx.id) }}" data-confirm="Delete this entry? This can't be undone." style="margin-top:6px">
+    <input type="hidden" name="next" value="{{ next }}"><button class="btn del block">Delete this entry</button></form>
+  {% if tx.recurring_id %}<p class="hint">🔁 Added automatically by a <a href="{{ url_for('bills') }}">recurring bill</a>. Changing it here only changes this one payment.</p>{% endif %}
+{% endif %}
+{% endblock %}

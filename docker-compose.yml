@@ -2,9 +2,11 @@ services:
   expenses:
     build: .                   # build the app from the Dockerfile
     ports:
-      - "8080:8080"            # open it in your browser at http://localhost:8080
+      - "8080:8080"            # open it in your browser at http://localhost:8080 (or http://<your-pi-ip>:8080)
     volumes:
-      - ./data:/app/data       # your database is stored in the "data" folder next to this file
+      - ./data:/app/data       # your database, receipts and daily backups live in the "data" folder next to this file
     environment:
-      - PROPERTY_NAME=My Rental Property   # change this to your property name or address
+      - PROPERTY_NAME=My Rental Property   # name of your first property (only used the very first time; rename it later in the app)
+      - TZ=America/New_York                # your time zone, so "today" and rent due dates match your clock
+      - KEEP_BACKUPS=14                    # how many daily automatic backups to keep (0 turns them off)
     restart: unless-stopped    # starts again by itself when Docker starts

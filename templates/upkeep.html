@@ -1,0 +1,52 @@
+{% extends "base.html" %}{% from "macros.html" import icon, property_select with context %}
+{% block title %}Upkeep{% endblock %}
+{% block content %}
+<div class="head"><h1>Upkeep</h1><a class="btn sm" href="#form">{{ icon('plus') }}Add reminder</a></div>
+
+<section class="card"><h2>Reminders</h2><p class="hint" style="margin-top:-6px">Tap a reminder to edit it. Tap <b>Done</b> when it's finished, and the next due date is set for you.</p>
+{% set open_tasks = tasks|rejectattr('done')|list %}
+{% if open_tasks %}<ul class="list">{% for t in open_tasks %}
+  {% set late = t.next_due and t.next_due < today.isoformat() %}{% set soon_ = t.next_due and t.next_due <= soon %}
+  <li id="task{{ t.id }}" style="flex-wrap:wrap"><span class="dot {{ '' if late else 'warn' if soon_ else 'info' }}">{{ icon('tool') }}</span>
+    <a class="main" href="{{ url_for('upkeep', edit=t.id) }}#form" style="color:inherit;text-decoration:none" title="Edit reminder"><b>{{ t.title }}</b><small>{% if late %}<span class="badge late">Overdue</span> {% elif soon_ %}<span class="badge due">Soon</span> {% endif %}Due {{ t.next_due|nice if t.next_due else '—' }}
+      · {{ 'every %d mo'|format(t.every_months) if t.every_months else 'one time' }}{% if not prop %} · {{ t.property }}{% endif %}</small></a>
+    <button type="button" class="btn sm good" data-toggle="done{{ t.id }}">{{ icon('check') }}Done</button>
+    <form id="done{{ t.id }}" class="hide fields two" method="post" action="{{ url_for('upkeep_done', tid=t.id) }}" enctype="multipart/form-data" style="flex-basis:100%;margin-top:10px;padding:12px;border-radius:12px;background:var(--brand-soft)">
+      <div><label>Done on</label><input type="date" name="done_date" value="{{ today.isoformat() }}"></div>
+      <div><label>Cost <small>(optional - adds an expense)</small></label><input name="cost" inputmode="decimal" placeholder="0.00"></div>
+      <div><label>Paid to <small>(optional)</small></label><input name="vendor" list="vl" autocomplete="off"></div>
+      <div><label>Category</label><select name="category">{% for c in ['Cleaning & maintenance','Repairs','Supplies'] %}<option>{{ c }}</option>{% endfor %}</select></div>
+      <div class="wide"><label>Note / receipt <small>(optional)</small></label><input name="note" placeholder="What was done?" style="margin-bottom:8px"><input type="file" name="receipts" accept="image/*,application/pdf"></div>
+      <div class="wide"><button class="btn good block">{{ icon('check') }}Mark done</button></div>
+    </form></li>
+{% endfor %}</ul>
+{% else %}<div class="empty"><b>No reminders yet</b>Add one below, or tap a suggestion.</div>{% endif %}
+<datalist id="vl">{% for v in vendors %}<option value="{{ v }}">{% endfor %}</datalist>
+</section>
+
+{% if suggestions %}<section class="card"><h2>Quick add</h2><p class="hint" style="margin-top:-6px">Common landlord to-dos. Tap to add a reminder{{ ' for ' + (prop.name if prop else props[0].name) if props|length>1 }}.</p>
+<div class="row-btns">{% for title, every in suggestions %}<form method="post" action="{{ url_for('upkeep_suggest') }}">
+  <input type="hidden" name="title" value="{{ title }}"><input type="hidden" name="every" value="{{ every }}"><input type="hidden" name="property_id" value="{{ default_pid }}">
+  <button class="chip" style="cursor:pointer">+ {{ title }} <small>· {{ every }} mo</small></button></form>{% endfor %}</div></section>{% endif %}
+
+<section class="card" id="form"><h2>{{ 'Edit reminder' if edit else 'Add a reminder' }}</h2>
+<form method="post" action="{{ url_for('upkeep_save') }}" class="fields two">
+  {% if edit %}<input type="hidden" name="id" value="{{ edit.id }}">{% endif %}
+  <div><label for="u-title">What needs doing?</label><input id="u-title" name="title" required value="{{ edit.title if edit else '' }}" placeholder="e.g. Replace HVAC filter"></div>
+  <div><label for="u-every">Repeat</label><select id="u-every" name="every_months">
+    {% for n, label in [(0,'One time only'),(1,'Every month'),(3,'Every 3 months'),(6,'Every 6 months'),(12,'Every year'),(24,'Every 2 years')] %}<option value="{{ n }}" {{ 'selected' if edit and edit.every_months==n or (not edit and n==3) }}>{{ label }}</option>{% endfor %}</select></div>
+  <div><label for="u-due">Next due</label><input type="date" id="u-due" name="next_due" value="{{ edit.next_due if edit else today.isoformat() }}"></div>
+  {{ property_select(edit.property_id if edit else default_pid) }}
+  <div class="wide"><label for="u-notes">Notes</label><input id="u-notes" name="notes" value="{{ edit.notes or '' if edit else '' }}" placeholder="e.g. 16x25x1 filter, in hallway closet"></div>
+  <div class="wide row-btns"><button class="btn">{{ icon('check') }}Save reminder</button>{% if edit %}<a class="btn alt" href="{{ url_for('upkeep') }}">Cancel</a>{% endif %}</div>
+</form>
+{% if edit %}<form method="post" action="{{ url_for('upkeep_delete', tid=edit.id) }}" data-confirm="Delete this reminder and its history?" style="margin-top:12px"><button class="btn del sm">Delete reminder</button></form>{% endif %}
+</section>
+
+<section class="card"><h2>History</h2>
+{% if log %}<ul class="list">{% for g in log %}<li><span class="dot in">{{ icon('check') }}</span>
+  <span class="main"><b>{{ g.title }}</b><small>{{ g.done_date|nice }}{% if g.note %} · {{ g.note }}{% endif %}{% if not prop %} · {{ g.property }}{% endif %}</small></span>
+  {% if g.amount %}<a class="amt" href="{{ url_for('money_form', tx_id=g.transaction_id) }}">{{ g.amount|money }}</a>{% endif %}</li>{% endfor %}</ul>
+{% else %}<p class="empty">Completed tasks will show up here.</p>{% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}{% from "macros.html" import icon, property_select with context %}
+{% block title %}Recurring bills{% endblock %}
+{% block content %}
+<div class="head"><h1>Recurring bills</h1></div>
+<p class="note">Set up bills that repeat, like HOA dues, the management fee, insurance or the mortgage. Each time one comes due it's
+added to <b>Money</b> automatically. If a bill was different one month, just tap that payment in Money and change it.</p>
+
+<section class="card"><div class="head"><h2>Your bills</h2><span class="badge">≈ {{ monthly|money }} / month</span></div>
+{% if rows %}<ul class="list">{% for r in rows %}
+  <li><a class="rowlink" href="{{ url_for('bills', edit=r.id) }}#form"><span class="dot {{ 'info' if r.active else 'warn' }}">{{ icon('repeat') }}</span>
+    <span class="main"><b>{{ r.description }}</b>
+      <small>{{ {1:'Monthly',3:'Every 3 months',6:'Every 6 months',12:'Yearly'}.get(r.every_months, 'Every %d months'|format(r.every_months)) }} · {{ r.category }}{% if r.vendor %} · {{ r.vendor }}{% endif %}{% if not prop %} · {{ r.property }}{% endif %}{% if not r.active %} · paused{% endif %}{% if r.end_date %} · ends {{ r.end_date }}{% endif %}</small></span>
+    <span class="amt">{{ r.amount|money }}</span></a></li>
+{% endfor %}</ul>
+{% else %}<div class="empty"><b>No recurring bills yet</b>Add your first one below.</div>{% endif %}
+</section>
+
+<section class="card" id="form"><h2>{{ 'Edit bill' if edit else 'Add a recurring bill' }}</h2>
+<form method="post" action="{{ url_for('bills_save') }}" class="fields two">
+  {% if edit %}<input type="hidden" name="id" value="{{ edit.id }}">{% endif %}
+  <div><label for="b-desc">Name</label><input id="b-desc" name="description" required value="{{ edit.description if edit else '' }}" placeholder="e.g. HOA dues"></div>
+  <div><label for="b-amt">Amount</label><input id="b-amt" name="amount" required inputmode="decimal" value="{{ '%.2f'|format(edit.amount) if edit else '' }}" placeholder="0.00"></div>
+  <div><label for="b-cat">Category</label><select id="b-cat" name="category">{% for c in EXP_CATS if c[0] != 'Capital improvement' %}<option {{ 'selected' if edit and edit.category==c[0] }}>{{ c[0] }}</option>{% endfor %}</select></div>
+  <div><label for="b-every">How often</label><select id="b-every" name="every_months">
+    {% for n, label in [(1,'Every month'),(3,'Every 3 months (quarterly)'),(6,'Every 6 months'),(12,'Once a year')] %}<option value="{{ n }}" {{ 'selected' if edit and edit.every_months==n }}>{{ label }}</option>{% endfor %}</select></div>
+  <div><label for="b-start">First payment date</label><input type="date" id="b-start" name="start_date" value="{{ edit.start_date if edit else today.replace(day=1).isoformat() }}">
+    <div class="hint">Past dates are filled in for you (handy when catching up).</div></div>
+  <div><label for="b-end">Last payment <small>(optional)</small></label><input type="date" id="b-end" name="end_date" value="{{ edit.end_date or '' if edit else '' }}"></div>
+  <div><label for="b-vendor">Paid to <small>(optional)</small></label><input id="b-vendor" name="vendor" list="vl" value="{{ edit.vendor or '' if edit else '' }}" autocomplete="off">
+    <datalist id="vl">{% for v in vendors %}<option value="{{ v }}">{% endfor %}</datalist></div>
+  {{ property_select(edit.property_id if edit else default_pid) }}
+  {% if edit %}<div><label for="b-active">Status</label><select id="b-active" name="active">
+    <option value="1" {{ 'selected' if edit.active }}>Active</option><option value="0" {{ 'selected' if not edit.active }}>Paused (stop adding it)</option></select></div>{% endif %}
+  <div class="wide row-btns"><button class="btn">{{ icon('check') }}{{ 'Save changes' if edit else 'Add bill' }}</button>
+    {% if edit %}<a class="btn alt" href="{{ url_for('bills') }}">Cancel</a>{% endif %}</div>
+</form>
+{% if edit %}<form method="post" action="{{ url_for('bills_delete', rid=edit.id) }}" data-confirm="Remove this recurring bill? Payments already recorded stay in Money." style="margin-top:12px"><button class="btn del sm">Remove this bill</button></form>{% endif %}
+</section>
+{% endblock %}

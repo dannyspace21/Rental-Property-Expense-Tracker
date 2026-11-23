@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% from "macros.html" import icon, money_row with context %}
+{% block title %}Vendor{% endblock %}
+{% block content %}
+<div class="head"><h1>{{ v.name if v else 'New vendor' }}</h1>
+  {% if v and v.phone %}<a class="btn sm good" href="tel:{{ v.phone }}">{{ icon('phone') }}Call</a>{% endif %}</div>
+<form method="post" action="{{ url_for('vendor_save') }}" class="card fields two">
+  {% if v %}<input type="hidden" name="id" value="{{ v.id }}">{% endif %}
+  <div><label for="v-name">Name</label><input id="v-name" name="name" required value="{{ v.name if v else '' }}"></div>
+  <div><label for="v-trade">Trade</label><input id="v-trade" name="trade" list="trades" value="{{ v.trade or '' if v else '' }}" placeholder="e.g. Plumber">
+    <datalist id="trades">{% for t in ['Plumber','Electrician','Handyman','HVAC','Cleaner','Landscaper','Pest control','Roofer','Painter','Appliance repair','Locksmith','Property manager','Accountant','Insurance'] %}<option value="{{ t }}">{% endfor %}</datalist></div>
+  <div><label for="v-phone">Phone</label><input id="v-phone" name="phone" type="tel" value="{{ v.phone or '' if v else '' }}"></div>
+  <div><label for="v-email">Email</label><input id="v-email" name="email" type="email" value="{{ v.email or '' if v else '' }}"></div>
+  <div class="wide"><label for="v-notes">Notes</label><textarea id="v-notes" name="notes" rows="2" placeholder="Tax ID / W-9 on file, rates, etc.">{{ v.notes or '' if v else '' }}</textarea></div>
+  <div class="wide row-btns"><button class="btn">{{ icon('check') }}Save</button><a class="btn alt" href="{{ url_for('vendors') }}">Back</a></div>
+</form>
+{% if v %}
+<section class="card"><div class="head"><h2>Payments</h2><span class="badge">{{ total|money }} all time</span></div>
+  {% if rows %}<ul class="list">{% for r in rows %}{{ money_row(r, props|length>1) }}{% endfor %}</ul>{% else %}<p class="empty">No payments yet.</p>{% endif %}</section>
+<form method="post" action="{{ url_for('vendor_delete', vid=v.id) }}" data-confirm="Delete this vendor? Their past expenses are kept."><button class="btn del block">Delete vendor</button></form>
+{% endif %}
+{% endblock %}
