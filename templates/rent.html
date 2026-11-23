@@ -1,0 +1,39 @@
+{% extends "base.html" %}{% from "macros.html" import icon, year_chips with context %}
+{% block title %}Rent{% endblock %}
+{% block content %}
+<div class="head"><h1>Rent</h1><a class="btn sm" href="{{ url_for('lease_form') }}">{{ icon('plus') }}Add lease</a></div>
+
+<section class="card"><h2>{{ MONTHS[today.month-1] }} {{ today.year }}</h2>
+{% if now %}<ul class="list">{% for r in now %}
+  <li><span class="dot {{ 'in' if r.status=='paid' else 'warn' if r.status in ('due','upcoming') else '' }}">{{ icon('check' if r.status=='paid' else 'key') }}</span>
+    <span class="main"><b>{{ r.lease.tenant }}{% if r.lease.unit %} · {{ r.lease.unit }}{% endif %}</b>
+      <small><span class="badge {{ r.status }}">{{ r.status|capitalize }}</span> {{ r.balance|money if r.status != "paid" else r.received|money }}{{ " left" if r.status != "paid" }} · due {{ r.due|nice }}{% if not prop %} · {{ r.lease.property }}{% endif %}</small></span>
+    {% if r.status != 'paid' %}<form method="post" action="{{ url_for('rent_paid', lease_id=r.lease.id) }}">
+      <input type="hidden" name="year" value="{{ today.year }}"><input type="hidden" name="month" value="{{ today.month }}">
+      <button class="btn sm good" aria-label="Mark {{ r.balance|money }} paid">{{ icon('check') }}Mark paid</button></form>{% endif %}</li>
+{% endfor %}</ul>
+<p class="hint">Got a partial payment? Use <a href="{{ url_for('money_form', kind='income', category='Rent') }}">+ Add → Income</a> and pick the tenant.</p>
+{% else %}<div class="empty"><b>No active leases</b>Add a lease to see who has paid each month.</div>{% endif %}
+</section>
+
+{% if roll %}<section class="card"><h2>Rent roll</h2>{{ year_chips(years, year, 'rent') }}
+<div class="scroll"><table class="grid12">
+  <thead><tr><th>Tenant</th>{% for m in MONTHS %}<th>{{ m[:3] }}</th>{% endfor %}<th>Received</th></tr></thead>
+  <tbody>{% for row in roll %}<tr><td><a href="{{ url_for('lease_form', lease_id=row.lease.id) }}">{{ row.lease.tenant }}</a></td>
+    {% for c in row.cells %}<td>{% if c.status=='none' %}<span class="muted">·</span>
+      {% elif c.status in ('paid','upcoming') %}<span class="badge {{ c.status }}" title="{{ c.received|money }}">{{ '✓' if c.status=='paid' else '–' }}</span>
+      {% else %}<a class="badge {{ c.status }}" style="text-decoration:none" title="Record payment" href="{{ url_for('money_form', kind='income', category='Rent', lease=row.lease.id, amount=c.balance, date=c.due) }}">{{ {'late':'Late','partial':'Part','due':'Due'}[c.status] }}</a>{% endif %}</td>{% endfor %}
+    <td class="r nowrap">{{ row.received|money }} <small>/ {{ row.expected|money }}</small></td></tr>{% endfor %}</tbody>
+</table></div>
+<p class="hint">Tap “Late”, “Part” or “Due” to record a payment for that month.</p></section>{% endif %}
+
+<section class="card"><h2>Leases & tenants</h2>
+{% if leases %}<ul class="list">{% for l in leases %}
+  <li><a class="rowlink" href="{{ url_for('lease_form', lease_id=l.id) }}"><span class="dot {{ 'info' if l.id in current_ids else 'warn' }}">{{ icon('users') }}</span>
+    <span class="main"><b>{{ l.tenant }}{% if l.unit %} · {{ l.unit }}{% endif %}</b>
+      <small>{{ l.start_date|nice }} → {{ l.end_date|nice if l.end_date else 'month-to-month' }}{% if not prop %} · {{ l.property }}{% endif %}{% if l.id not in current_ids %} · not current{% endif %}</small></span>
+    <span class="amt">{{ l.rent|money }}<small>/mo</small></span></a></li>
+{% endfor %}</ul>
+{% else %}<div class="empty"><b>No leases yet</b><a class="btn" href="{{ url_for('lease_form') }}" style="margin-top:10px">{{ icon('plus') }}Add your first lease</a></div>{% endif %}
+</section>
+{% endblock %}

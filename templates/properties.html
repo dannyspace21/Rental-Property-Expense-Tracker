@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% from "macros.html" import icon with context %}
+{% block title %}Properties{% endblock %}
+{% block content %}
+<div class="head"><h1>Properties</h1><a class="btn sm" href="{{ url_for('property_form') }}">{{ icon('plus') }}Add property</a></div>
+{% for r in rows %}
+<section class="card"><div class="head"><div><h2 style="margin:0">{{ r.p.name }}</h2>{% if r.p.address %}<small>{{ r.p.address }}</small>{% endif %}</div>
+  <div class="row-btns">{% if rows|length>1 %}<a class="btn sm ghost" href="{{ url_for('switch_property', pid=r.p.id, next=url_for('home')) }}">View</a>{% endif %}
+  <a class="btn sm alt" href="{{ url_for('property_form', prop_id=r.p.id) }}">Edit</a></div></div>
+  <div class="kpis" style="margin:0">
+    <div class="kpi"><span>{{ year }} income</span><b class="pos">{{ r.s.income|money }}</b></div>
+    <div class="kpi"><span>{{ year }} expenses</span><b class="neg">{{ r.s.expense|money }}</b></div>
+    <div class="kpi"><span>Tenants now</span><b>{{ r.tenants }}</b></div>
+  </div>
+  {% if not r.p.purchase_price %}<p class="hint">Add the purchase price on <a href="{{ url_for('property_form', prop_id=r.p.id) }}">Edit</a> to unlock depreciation, cap rate and cash-on-cash return.</p>{% endif %}
+</section>
+{% endfor %}
+{% endblock %}

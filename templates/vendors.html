@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% from "macros.html" import icon, year_chips with context %}
+{% block title %}Vendors{% endblock %}
+{% block content %}
+<div class="head"><h1>Vendors</h1><a class="btn sm" href="{{ url_for('vendor_page') }}">{{ icon('plus') }}Add vendor</a></div>
+<p class="note">Plumbers, handymen, cleaners and anyone else you pay. New names typed into an expense are added here automatically.
+Anyone you paid <b>$600 or more</b> for services in a year is flagged (banks, insurance, taxes, HOA and utilities are skipped): you may need to send them a 1099-NEC.</p>
+{{ year_chips(years, year, 'vendors') }}
+<section class="card">
+{% if rows %}<ul class="list">{% for v in rows %}
+  <li><a class="rowlink" href="{{ url_for('vendor_page', vid=v.id) }}"><span class="dot info">{{ icon('users') }}</span>
+    <span class="main"><b>{{ v.name }}{% if v.nec_total >= 600 %} <span class="badge due">1099?</span>{% endif %}</b>
+      <small>{{ v.trade or 'Vendor' }} · {{ v.jobs }} payment{{ 's' if v.jobs!=1 }} total</small></span>
+    <span class="amt">{{ v.year_total|money }}<small> in {{ year }}</small></span></a></li>
+{% endfor %}</ul>
+{% else %}<div class="empty"><b>No vendors yet</b>Type a name in “Paid to” when adding an expense.</div>{% endif %}
+</section>
+{% endblock %}

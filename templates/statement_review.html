@@ -1,0 +1,40 @@
+{% extends "base.html" %}{% from "macros.html" import icon, property_select with context %}
+{% block title %}Review statement{% endblock %}
+{% block content %}
+{% macro mv(v) %}{{ '%.2f'|format(v) if v is number else '' }}{% endmacro %}
+<div class="head"><h1>{{ 'Check your statement' if up else 'Enter a mortgage payment' }}</h1></div>
+{% for w in warn %}<div class="note" style="background:var(--warn-soft);color:var(--warn)">{{ icon('alert') }} {{ w }}</div>{% endfor %}
+{% if p.found %}<div class="flash">{{ icon('check') }} Found the payment breakdown{{ ' from ' + p.lender if p.lender }}. Check the numbers, then save.</div>{% endif %}
+<form method="post" action="{{ url_for('statement_save') }}">
+  {% if up %}<input type="hidden" name="stored" value="{{ up[0] }}"><input type="hidden" name="filename" value="{{ up[1] }}"><input type="hidden" name="sha" value="{{ up[2] }}">{% endif %}
+  <input type="hidden" name="statement_date" value="{{ p.statement_date or '' }}">
+  <input type="hidden" name="principal_balance" value="{{ p.principal_balance or '' }}"><input type="hidden" name="escrow_balance" value="{{ p.escrow_balance or '' }}">
+  <section class="card fields two">
+    <div><label for="paid_date">Payment date</label><input type="date" id="paid_date" name="paid_date" value="{{ paid.isoformat() }}" required>
+      <div class="hint">The payment this statement shows as “paid last month”.</div></div>
+    <div><label for="lender">Lender</label><input id="lender" name="lender" value="{{ lender }}" list="lenders" placeholder="e.g. PennyMac">
+      <datalist id="lenders">{% for l in lenders %}<option value="{{ l }}">{% endfor %}</datalist></div>
+    {{ property_select(pid) }}
+  </section>
+  <section class="card"><h2>Where the payment went</h2><div class="fields two">
+    <div><label for="interest">Interest <small>· deductible</small></label><input id="interest" name="interest" inputmode="decimal" value="{{ mv(p.interest) }}" placeholder="0.00"></div>
+    <div><label for="principal">Principal <small>· not deductible</small></label><input id="principal" name="principal" inputmode="decimal" value="{{ mv(p.principal) }}" placeholder="0.00"></div>
+    <div><label for="escrow">Escrow <small>· taxes &amp; insurance</small></label><input id="escrow" name="escrow" inputmode="decimal" value="{{ mv(p.escrow) }}" placeholder="0.00"></div>
+    <div><label for="fees">Fees / late charges</label><input id="fees" name="fees" inputmode="decimal" value="{{ mv(p.fees) }}" placeholder="0.00"></div>
+  </div>
+  <p class="hint" id="sum-line">Total: <b id="sum">—</b>{% if p.total %} · statement says <b>{{ p.total|money }}</b>{% endif %}</p>
+  {% if p.ytd_interest or p.principal_balance or p.rate %}<details class="more"><summary>Also on this statement</summary><ul class="hint">
+    {% if p.ytd_interest %}<li>Interest paid this year so far: {{ p.ytd_interest|money }}</li>{% endif %}
+    {% if p.principal_balance %}<li>Remaining principal: {{ p.principal_balance|money }}</li>{% endif %}
+    {% if p.escrow_balance %}<li>Escrow balance: {{ p.escrow_balance|money }}</li>{% endif %}
+    {% if p.rate %}<li>Interest rate: {{ p.rate }}%</li>{% endif %}</ul></details>{% endif %}
+  </section>
+  <div class="sticky-save row-btns"><button class="btn" style="flex:1">{{ icon('check') }}Save payment</button><a class="btn alt" href="{{ url_for('mortgage_page') }}">Cancel</a></div>
+</form>
+<script>
+(() => { const ids = ["interest","principal","escrow","fees"], out = document.getElementById("sum");
+  const upd = () => { const t = ids.reduce((a, i) => a + (parseFloat((document.getElementById(i).value||"").replace(/[$,]/g,""))||0), 0);
+    out.textContent = "$" + t.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); };
+  ids.forEach(i => document.getElementById(i).addEventListener("input", upd)); upd(); })();
+</script>
+{% endblock %}

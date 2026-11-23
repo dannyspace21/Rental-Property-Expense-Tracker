@@ -1,0 +1,58 @@
+{% extends "base.html" %}{% from "macros.html" import icon, year_chips, property_select with context %}
+{% block title %}Mortgage{% endblock %}
+{% block content %}
+<div class="head"><h1>Mortgage</h1></div>
+<p class="note">Import the PDFs from your lender (PennyMac: <b>Statements &amp; Documents</b> in your online account).
+Each monthly statement is split into <b>interest</b> (tax deductible), <b>principal</b> and <b>escrow</b> automatically.
+Your year-end <b>Form 1098</b> then checks those totals and adds the property taxes and insurance your lender paid from escrow.</p>
+
+<div class="grid two">
+<section class="card"><h2>{{ icon('file') }} Monthly statement</h2>
+  <form method="post" action="{{ url_for('statement_review') }}" enctype="multipart/form-data" class="fields">
+    {{ property_select(default_pid, id='st-prop') }}
+    <div><label for="st-file">Statement PDF</label><input type="file" id="st-file" name="file" accept="application/pdf,.pdf" required></div>
+    <div class="row-btns"><button class="btn">{{ icon('upload') }}Read statement</button>
+      <a class="btn alt" href="{{ url_for('statement_review', property_id=default_pid) }}">Type it in</a></div>
+  </form>
+  <p class="hint">You'll see what was found before anything is saved.</p></section>
+<section class="card"><h2>{{ icon('file') }} Form 1098 (year-end)</h2>
+  <form method="post" action="{{ url_for('form1098_review') }}" enctype="multipart/form-data" class="fields">
+    {{ property_select(default_pid, id='f-prop') }}
+    <div><label for="f-file">Form 1098 PDF</label><input type="file" id="f-file" name="file" accept="application/pdf,.pdf" required></div>
+    <div class="row-btns"><button class="btn">{{ icon('upload') }}Read 1098</button>
+      <a class="btn alt" href="{{ url_for('form1098_review', property_id=default_pid) }}">Type it in</a></div>
+  </form>
+  <p class="hint">Arrives by January 31 each year.</p></section>
+</div>
+
+<section class="card"><h2>{{ year }} so far{{ ' · ' + prop.name if prop }}</h2>
+{{ year_chips(years, year, 'mortgage_page') }}
+<div class="kpis">
+  <div class="kpi"><span>Interest</span><b>{{ m['Mortgage interest']|money }}</b></div>
+  <div class="kpi"><span>Principal</span><b>{{ m['Mortgage principal']|money }}</b></div>
+  <div class="kpi"><span>Escrow paid in</span><b>{{ m['Mortgage escrow']|money }}</b></div>
+</div>
+{% if m.escrow_paid %}<p class="hint">Taxes &amp; insurance paid from escrow (from your 1098): <b>{{ m.escrow_paid|money }}</b></p>{% endif %}
+</section>
+
+<section class="card"><h2>Imported statements</h2>
+{% if statements %}<ul class="list">{% for d in statements %}{% set x = data[d.id] %}
+  <li><span class="dot info">{{ icon('file') }}</span>
+    <span class="main"><b>{{ MONTHS[d.doc_date[5:7]|int - 1] }} {{ d.doc_date[:4] }} payment</b>
+      <small>Interest {{ (x.interest or 0)|money }} · Principal {{ (x.principal or 0)|money }} · Escrow {{ (x.escrow or 0)|money }}{% if not prop %} · {{ d.property }}{% endif %}</small></span>
+    {% if d.stored %}<a class="btn sm ghost" href="{{ url_for('mortgage_doc_file', doc_id=d.id) }}" target="_blank">PDF</a>{% endif %}
+    <form method="post" action="{{ url_for('mortgage_doc_delete', doc_id=d.id) }}" data-confirm="Undo this import? The interest, principal and escrow entries it added will be removed."><button class="btn sm del">Undo</button></form></li>
+{% endfor %}</ul>
+{% else %}<p class="empty">No statements imported yet.</p>{% endif %}
+</section>
+
+<section class="card"><h2>Imported Forms 1098</h2>
+{% if forms %}<ul class="list">{% for d in forms %}{% set x = data[d.id] %}
+  <li><span class="dot in">{{ icon('check') }}</span>
+    <span class="main"><b>{{ d.year }} Form 1098</b><small>Interest {{ (x.box1 or 0)|money }}{% if x.taxes %} · Taxes {{ x.taxes|money }}{% endif %}{% if x.insurance %} · Insurance {{ x.insurance|money }}{% endif %}{% if not prop %} · {{ d.property }}{% endif %}</small></span>
+    {% if d.stored %}<a class="btn sm ghost" href="{{ url_for('mortgage_doc_file', doc_id=d.id) }}" target="_blank">PDF</a>{% endif %}
+    <form method="post" action="{{ url_for('mortgage_doc_delete', doc_id=d.id) }}" data-confirm="Undo this 1098 import? The adjustments it added will be removed."><button class="btn sm del">Undo</button></form></li>
+{% endfor %}</ul>
+{% else %}<p class="empty">No 1098 imported yet.</p>{% endif %}
+</section>
+{% endblock %}

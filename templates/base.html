@@ -1,0 +1,43 @@
+{% from "macros.html" import icon with context %}<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>{% block title %}Rental Tracker{% endblock %} · {{ prop.name if prop else 'All properties' }}</title>
+<meta name="theme-color" content="#1f4e6b">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Rentals">
+<link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+<link rel="icon" href="{{ url_for('static', filename='icon.svg') }}" type="image/svg+xml">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-180.png') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head><body>
+{% set ep = request.endpoint or '' %}
+{% set section = 'home' if ep=='home' else 'add' if ep=='money_form' and not request.view_args else 'money' if ep.startswith('money') else 'rent' if ep.startswith('rent') or ep.startswith('lease') else 'upkeep' if ep.startswith('upkeep') else 'reports' if ep.startswith('report') or ep.startswith('schedule') else 'more' %}
+<header class="top"><div class="bar">
+  <a class="brand" href="{{ url_for('home') }}"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#fff" fill-opacity=".16"/><path d="M16 6 5 15.5h3V25h6v-6h4v6h6v-9.5h3z" fill="#fff"/></svg>Rental Tracker</a>
+  <div class="switcher">{% if props|length > 1 %}
+    <select id="switch" aria-label="Choose property"><option value="all">All properties</option>
+      {% for p in props %}<option value="{{ p.id }}" {{ 'selected' if p.id==pid }}>{{ p.name }}</option>{% endfor %}</select>
+  {% else %}<span class="one">{{ props[0].name }}</span>{% endif %}</div>
+  <nav class="topnav" aria-label="Main">
+    <a href="{{ url_for('home') }}" class="{{ 'on' if section=='home' }}">Home</a>
+    <a href="{{ url_for('money_list') }}" class="{{ 'on' if section=='money' }}">Money</a>
+    <a href="{{ url_for('rent') }}" class="{{ 'on' if section=='rent' }}">Rent</a>
+    <a href="{{ url_for('upkeep') }}" class="{{ 'on' if section=='upkeep' }}">Upkeep</a>
+    <a href="{{ url_for('reports_page') }}" class="{{ 'on' if section=='reports' }}">Reports</a>
+    <a href="{{ url_for('more') }}" class="{{ 'on' if section=='more' }}">More</a>
+    <a href="{{ url_for('money_form') }}" class="add">+ Add</a>
+  </nav>
+</div></header>
+<main>
+  {% for m in get_flashed_messages() %}<div class="flash" role="status">{{ m }}</div>{% endfor %}
+  {% block content %}{% endblock %}
+</main>
+<nav class="tabbar" aria-label="Main">
+  <a href="{{ url_for('home') }}" class="{{ 'on' if section=='home' }}">{{ icon('home') }}Home</a>
+  <a href="{{ url_for('money_list') }}" class="{{ 'on' if section=='money' }}">{{ icon('money') }}Money</a>
+  <a href="{{ url_for('money_form') }}" class="plus {{ 'on' if section=='add' }}" aria-label="Add income or expense"><span>{{ icon('plus') }}</span>Add</a>
+  <a href="{{ url_for('rent') }}" class="{{ 'on' if section=='rent' }}">{{ icon('key') }}Rent</a>
+  <a href="{{ url_for('more') }}" class="{{ 'on' if section in ('more','upkeep','reports') }}">{{ icon('menu') }}More</a>
+</nav>
+</body></html>

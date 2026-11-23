@@ -1,0 +1,29 @@
+{% extends "base.html" %}{% from "macros.html" import icon, property_select with context %}
+{% block title %}More{% endblock %}
+{% block content %}
+<h1>More</h1>
+<div class="tiles" style="margin-bottom:14px">
+  <a class="tile" href="{{ url_for('upkeep') }}">{{ icon('tool') }}<b>Upkeep</b><small class="muted">Maintenance reminders & history</small></a>
+  <a class="tile" href="{{ url_for('reports_page') }}">{{ icon('chart') }}<b>Reports</b><small class="muted">Schedule E, depreciation, returns</small></a>
+  <a class="tile" href="{{ url_for('mortgage_page') }}">{{ icon('building') }}<b>Mortgage</b><small class="muted">Import statements &amp; Form 1098</small></a>
+  <a class="tile" href="{{ url_for('bills') }}">{{ icon('repeat') }}<b>Recurring bills</b><small class="muted">HOA, fees, insurance, mortgage</small></a>
+  <a class="tile" href="{{ url_for('vendors') }}">{{ icon('users') }}<b>Vendors</b><small class="muted">Contractors & 1099 tracking</small></a>
+  <a class="tile" href="{{ url_for('properties') }}">{{ icon('building') }}<b>Properties</b><small class="muted">Add or edit properties</small></a>
+  <a class="tile" href="{{ url_for('backup') }}">{{ icon('download') }}<b>Download backup</b><small class="muted">All data + receipts (.zip)</small></a>
+</div>
+
+<section class="card"><h2>Automatic backups</h2>
+  <p class="hint" style="margin-top:-6px">A copy of your data is saved every day in <code>data/backups</code> (the last 14 days are kept).</p>
+  {% if backups %}<ul class="list">{% for b in backups %}<li><span class="main"><small>{{ b }}</small></span></li>{% endfor %}</ul>{% endif %}
+</section>
+
+<section class="card"><h2>Import from Excel</h2>
+  <form method="post" action="{{ url_for('import_excel') }}" enctype="multipart/form-data" class="fields"
+        data-confirm="This replaces the typed-in expenses for every year found in the file (income, rent and recurring bills are kept). A safety copy is made first. Continue?">
+    <p class="hint" style="margin:0">Each sheet named by year (like 2025). Expenses in columns A–C from row 3; monthly management fee, agent and HOA in columns F–H.</p>
+    {{ property_select(pid or props[0].id, 'Import into') }}
+    <input type="file" name="file" accept=".xlsx" required>
+    <div><button class="btn">{{ icon('upload') }}Import</button></div>
+  </form>
+</section>
+{% endblock %}

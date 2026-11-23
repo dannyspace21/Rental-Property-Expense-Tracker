@@ -1,0 +1,69 @@
+{% extends "base.html" %}{% from "macros.html" import icon, year_chips with context %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+{% macro pct(v) %}{{ '%.1f%%'|format(v) if v is not none else '—' }}{% endmacro %}
+<div class="head"><h1>Reports</h1>
+  <div class="row-btns"><a class="btn sm" href="{{ url_for('report_pdf', year=year) }}">{{ icon('file') }}PDF report</a></div></div>
+{{ year_chips(years, year, 'reports_page') }}
+
+<section class="card"><div class="head"><h2>Schedule E · {{ year }}</h2><a class="btn sm ghost" href="{{ url_for('schedule_e_csv', year=year) }}">{{ icon('download') }}CSV</a></div>
+<p class="hint" style="margin-top:-6px">Your totals for each line of IRS Schedule E{{ ' (one per property: pick a property at the top)' if not prop and props|length>1 }}.
+Capital improvements and mortgage principal are left out; depreciation (line 18) is added instead. Double-check with your tax preparer.</p>
+<div class="scroll"><table>
+  <thead><tr><th>Line</th><th>Description</th><th class="r">Amount</th></tr></thead>
+  <tbody>{% for r in se.rows %}<tr class="{{ 'muted' if not r.amount }}"><td>{{ r.line }}</td><td>{{ r.label }}</td><td class="r">{{ r.amount|money }}</td></tr>{% endfor %}</tbody>
+  <tfoot><tr><td>20</td><td>Total expenses</td><td class="r">{{ se.expenses|money }}</td></tr>
+    <tr><td>21</td><td>Income or (loss)</td><td class="r {{ 'pos' if se.net>=0 else 'neg' }}">{{ se.net|money }}</td></tr></tfoot>
+</table></div></section>
+
+<section class="card"><h2>Depreciation · {{ year }}</h2>
+{% if se.depreciation %}<div class="scroll"><table>
+  <thead><tr><th>Item</th><th>Placed in service</th><th class="r">Cost basis</th><th class="r">Years</th><th class="r">{{ year }}</th><th class="r">Total so far</th></tr></thead>
+  <tbody>{% for d in se.depreciation %}<tr><td>{{ d.what }}{% if not prop %}<br><small>{{ d.property }}</small>{% endif %}</td><td>{{ d.start }}</td>
+    <td class="r">{{ d.basis|money }}</td><td class="r">{{ d.years }}</td><td class="r">{{ d.amount|money }}</td><td class="r">{{ d.accumulated|money }}</td></tr>{% endfor %}</tbody>
+  <tfoot><tr><td colspan="4">Total for {{ year }}</td><td class="r">{{ se.depreciation|sum(attribute='amount')|money }}</td><td></td></tr></tfoot>
+</table></div>
+<p class="hint">Straight-line estimate (27.5-year items use the mid-month rule). Building basis = purchase price + closing costs − land value.</p>
+{% else %}<div class="empty"><b>Nothing to depreciate yet</b>Add the purchase price, date and land value to <a href="{{ url_for('properties') }}">your property</a>, or log a “Capital improvement” expense.</div>{% endif %}
+</section>
+
+<section class="card"><h2>Investment performance · {{ year }}</h2>
+{% for p, m in metrics %}
+  {% if metrics|length > 1 %}<h3 style="margin-top:10px">{{ p.name }}</h3>{% endif %}
+  <div class="kpis">
+    <div class="kpi"><span>Net operating income</span><b>{{ m.noi|money }}</b></div>
+    <div class="kpi"><span>Cap rate</span><b>{{ pct(m.cap_rate) }}</b></div>
+    <div class="kpi"><span>Cash-on-cash</span><b>{{ pct(m.coc) }}</b></div>
+    <div class="kpi"><span>Cash flow / month</span><b class="{{ 'pos' if (m.monthly_cash_flow or 0)>=0 else 'neg' }}">{{ m.monthly_cash_flow|money if m.monthly_cash_flow is not none else '—' }}</b></div>
+    <div class="kpi"><span>Expense ratio</span><b>{{ pct(m.expense_ratio) }}</b></div>
+    <div class="kpi"><span>Cash invested</span><b>{{ m.invested|money if m.invested else '—' }}</b></div>
+  </div>
+  {% if m.months and m.months < 12 %}<p class="hint">{{ year }} isn't over yet, so cap rate and cash-on-cash are estimated from the first {{ m.months }} month{{ 's' if m.months!=1 }} (annualized).</p>{% endif %}
+  {% if not p.purchase_price %}<p class="hint">Add the purchase price and down payment to <a href="{{ url_for('property_form', prop_id=p.id) }}">{{ p.name }}</a> to see cap rate and cash-on-cash.</p>{% endif %}
+{% endfor %}
+<details class="more"><summary>What do these mean?</summary><ul class="hint">
+  <li><b>Net operating income (NOI)</b>: income minus running costs (not counting mortgage, interest or big upgrades).</li>
+  <li><b>Cap rate</b>: NOI ÷ property value. Compares properties as if bought with cash.</li>
+  <li><b>Cash-on-cash</b>: the year's cash flow ÷ cash you've put in (down payment + closing costs + improvements).</li>
+  <li><b>Expense ratio</b>: running costs as a share of income. Lower is better.</li></ul></details>
+</section>
+
+<div class="grid two">
+<section class="card"><h2>Year over year</h2><div class="scroll"><table>
+  <thead><tr><th>Year</th><th class="r">Income</th><th class="r">Expenses</th><th class="r">Net</th></tr></thead>
+  <tbody>{% for y in yoy|reverse %}<tr><td><a href="{{ url_for('reports_page', year=y.year) }}">{{ y.year }}</a></td><td class="r">{{ y.income|money }}</td>
+    <td class="r">{{ y.expense|money }}</td><td class="r {{ 'pos' if y.net>=0 else 'neg' }}">{{ y.net|money }}</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="card"><h2>1099 check · {{ year }}</h2>
+  {% if vendors_1099 %}<p class="hint" style="margin-top:-6px">You paid these vendors $600 or more. You may need to send a 1099-NEC (usually not required for corporations or card payments).</p>
+  <ul class="list">{% for v in vendors_1099 %}<li><a class="rowlink" href="{{ url_for('vendor_page', vid=v.id) }}"><span class="main"><b>{{ v.name }}</b></span><span class="amt">{{ v.total|money }}</span></a></li>{% endfor %}</ul>
+  {% else %}<p class="empty">No vendor was paid $600 or more in {{ year }}.</p>{% endif %}</section>
+</div>
+
+<section class="card"><h2>Expenses by category · {{ year }}</h2>
+{% if s.categories %}<div class="scroll"><table><thead><tr><th>Category</th><th>Sch. E line</th><th class="r">Amount</th><th class="r">Share</th></tr></thead>
+  <tbody>{% for name, amt in s.categories %}<tr><td><a href="{{ url_for('money_list', year=year, category=name) }}">{{ name }}</a></td><td>{{ LINE.get(name) or '—' }}</td>
+    <td class="r">{{ amt|money }}</td><td class="r">{{ '%.0f%%'|format(amt / s.expense * 100) }}</td></tr>{% endfor %}</tbody>
+  <tfoot><tr><td colspan="2">Total</td><td class="r">{{ s.expense|money }}</td><td></td></tr></tfoot></table></div>
+{% else %}<p class="empty">No expenses in {{ year }}.</p>{% endif %}
+</section>
+{% endblock %}

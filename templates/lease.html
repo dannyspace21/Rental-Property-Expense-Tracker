@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% from "macros.html" import icon, property_select, money_row with context %}
+{% block title %}Lease{% endblock %}
+{% block content %}
+<div class="head"><h1>{{ 'Edit lease' if l else 'New lease' }}</h1></div>
+<form method="post" action="{{ url_for('lease_save') }}">
+  {% if l %}<input type="hidden" name="id" value="{{ l.id }}">{% endif %}
+  <section class="card"><h2>Tenant</h2><div class="fields two">
+    <div><label for="tenant">Tenant name(s)</label><input id="tenant" name="tenant" required value="{{ l.tenant if l else '' }}" placeholder="e.g. Jordan & Sam Lee"></div>
+    <div><label for="unit">Unit <small>(optional)</small></label><input id="unit" name="unit" value="{{ l.unit or '' if l else '' }}" placeholder="e.g. Unit B"></div>
+    <div><label for="phone">Phone</label><input id="phone" name="phone" type="tel" value="{{ l.phone or '' if l else '' }}">
+      {% if l and l.phone %}<a class="hint" href="tel:{{ l.phone }}">Call {{ l.phone }}</a>{% endif %}</div>
+    <div><label for="email">Email</label><input id="email" name="email" type="email" value="{{ l.email or '' if l else '' }}"></div>
+    {{ property_select(l.property_id if l else default_pid) }}
+  </div></section>
+  <section class="card"><h2>Lease terms</h2><div class="fields two">
+    <div><label for="rent">Monthly rent</label><input id="rent" name="rent" inputmode="decimal" required value="{{ '%.2f'|format(l.rent) if l else '' }}" placeholder="0.00"></div>
+    <div><label for="deposit">Security deposit held</label><input id="deposit" name="deposit" inputmode="decimal" value="{{ '%.2f'|format(l.deposit or 0) if l else '' }}" placeholder="0.00"></div>
+    <div><label for="start">Start date</label><input type="date" id="start" name="start_date" required value="{{ l.start_date if l else today.isoformat() }}"></div>
+    <div><label for="end">End date</label><input type="date" id="end" name="end_date" value="{{ l.end_date or '' if l else '' }}"><div class="hint">Leave blank for month-to-month.</div></div>
+    <div><label for="due">Rent due on day</label><input id="due" name="due_day" type="number" min="1" max="28" value="{{ l.due_day if l else 1 }}"></div>
+    <div><label for="grace">Late after (days of grace)</label><input id="grace" name="grace_days" type="number" min="0" max="27" value="{{ l.grace_days if l else 5 }}"></div>
+    <div class="wide"><label for="notes">Notes</label><textarea id="notes" name="notes" rows="2">{{ l.notes or '' if l else '' }}</textarea></div>
+  </div></section>
+  <div class="sticky-save row-btns"><button class="btn" style="flex:1">{{ icon('check') }}Save lease</button><a class="btn alt" href="{{ url_for('rent') }}">Cancel</a></div>
+</form>
+{% if l %}
+<section class="card"><h2>Payments from this tenant</h2>
+  {% if payments %}<ul class="list">{% for r in payments %}{{ money_row(r) }}{% endfor %}</ul>
+  {% else %}<p class="empty">No payments recorded yet.</p>{% endif %}</section>
+<form method="post" action="{{ url_for('lease_delete', lease_id=l.id) }}" data-confirm="Delete this lease? Recorded rent payments are kept."><button class="btn del block">Delete lease</button></form>
+{% endif %}
+{% endblock %}

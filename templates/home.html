@@ -1,0 +1,57 @@
+{% extends "base.html" %}{% from "macros.html" import icon, year_chips, money_row, bar_chart with context %}
+{% block title %}Home{% endblock %}
+{% block content %}
+<div class="head"><h1>{{ prop.name if prop else 'All properties' }}</h1></div>
+{{ year_chips(years, year, 'home') }}
+
+<div class="kpis">
+  <div class="kpi"><span>Income</span><b class="pos">{{ s.income|money }}</b></div>
+  <div class="kpi"><span>Expenses</span><b class="neg">{{ s.expense|money }}</b></div>
+  <div class="kpi main"><span>Net cash flow{{ ' so far' if year==today.year }}</span><b>{{ s.net|money }}</b></div>
+</div>
+
+{% if alerts %}
+<section class="card"><h2>Needs attention</h2><ul class="list">
+{% for a in alerts %}
+  {% if a.kind == 'rent' %}
+  <li><span class="dot {{ 'warn' if a.level=='warn' }}">{{ icon('key') }}</span>
+    <span class="main"><b>Rent {{ a.status }}: {{ a.lease.tenant }}</b>
+      <small>{{ a.balance|money }} due {{ a.due|nice }}{% if not prop %} · {{ a.lease.property }}{% endif %}</small></span>
+    <form method="post" action="{{ url_for('rent_paid', lease_id=a.lease.id) }}"><input type="hidden" name="year" value="{{ today.year }}"><input type="hidden" name="month" value="{{ today.month }}"><input type="hidden" name="next" value="{{ request.full_path }}">
+      <button class="btn sm good">{{ icon('check') }}Mark paid</button></form></li>
+  {% elif a.kind == 'task' %}
+  <li><a class="rowlink" href="{{ url_for('upkeep') }}#task{{ a.task.id }}"><span class="dot {{ 'warn' if a.level=='warn' }}">{{ icon('tool') }}</span>
+    <span class="main"><b>{{ a.task.title }}</b><small>{{ 'Overdue since' if a.level=='bad' else 'Due' }} {{ a.task.next_due|nice }}{% if not prop %} · {{ a.task.property }}{% endif %}</small></span>
+    <span class="btn sm ghost">Open</span></a></li>
+  {% else %}
+  <li><a class="rowlink" href="{{ url_for('lease_form', lease_id=a.lease.id) }}"><span class="dot warn">{{ icon('clock') }}</span>
+    <span class="main"><b>Lease ends in {{ a.days }} day{{ 's' if a.days!=1 }}</b><small>{{ a.lease.tenant }} · {{ a.lease.end_date|nice }}</small></span>
+    <span class="btn sm ghost">Open</span></a></li>
+  {% endif %}
+{% endfor %}</ul></section>
+{% endif %}
+
+{% if per_property|length > 1 %}
+<section class="card"><h2>By property · {{ year }}</h2><ul class="list">
+  {% for r in per_property %}<li><a class="rowlink" href="{{ url_for('switch_property', pid=r.p.id, next=url_for('home', year=year)) }}">
+    <span class="dot info">{{ icon('building') }}</span>
+    <span class="main"><b>{{ r.p.name }}</b><small>In {{ r.income|money }} · Out {{ r.expense|money }}</small></span>
+    <span class="amt {{ 'pos' if r.net>=0 else 'neg' }}">{{ r.net|money }}</span></a></li>{% endfor %}
+</ul></section>
+{% endif %}
+
+<div class="grid side">
+  <section class="card"><h2>Month by month</h2>{{ bar_chart(chart) }}</section>
+  <section class="card"><h2>Where the money went</h2>
+    {% if s.categories %}{% set top = s.categories[0][1] %}
+      {% for name, amt in s.categories[:7] %}<div class="hbar"><div class="lbl"><span>{{ name }}</span><b>{{ amt|money }}</b></div>
+        <div class="track"><div class="fill" style="width:{{ (amt/top*100)|round(1) }}%"></div></div></div>{% endfor %}
+    {% else %}<p class="empty">No expenses in {{ year }} yet.</p>{% endif %}
+  </section>
+</div>
+
+<section class="card"><div class="head"><h2>Recent activity</h2><a class="btn sm ghost" href="{{ url_for('money_list') }}">See all</a></div>
+  {% if recent %}<ul class="list">{% for r in recent %}{{ money_row(r, not prop) }}{% endfor %}</ul>
+  {% else %}<div class="empty"><b>Nothing recorded yet</b>Tap <b style="display:inline">+ Add</b> to log your first expense or rent payment.</div>{% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}{% from "macros.html" import icon, money_row with context %}
+{% block title %}Money{% endblock %}
+{% block content %}
+<div class="head"><h1>Money</h1>
+  <div class="row-btns"><a class="btn sm ghost" href="{{ url_for('money_csv', **request.args) }}">{{ icon('download') }}CSV</a>
+  <a class="btn sm" href="{{ url_for('money_form') }}">{{ icon('plus') }}Add</a></div></div>
+
+<form method="get" class="card flat" style="padding:12px">
+  <div style="display:flex;gap:8px">
+    <input type="search" name="q" value="{{ f.q }}" placeholder="Search description, vendor, notes…" aria-label="Search">
+    <button class="btn" aria-label="Search">{{ icon('search') }}</button>
+  </div>
+  <div class="fields two" style="margin-top:10px;grid-template-columns:1fr 1fr">
+    <select name="year" aria-label="Year" onchange="this.form.submit()"><option value="">All years</option>{% for y in years|reverse %}<option {{ 'selected' if f.year==y|string }}>{{ y }}</option>{% endfor %}</select>
+    <select name="kind" aria-label="Type" onchange="this.form.submit()"><option value="">Income & expenses</option>
+      <option value="expense" {{ 'selected' if f.kind=='expense' }}>Expenses only</option><option value="income" {{ 'selected' if f.kind=='income' }}>Income only</option></select>
+  </div>
+  <details class="more" {{ 'open' if advanced }} style="margin-top:8px"><summary>More filters</summary>
+    <div class="fields two" style="margin-top:8px">
+      <div><label>Category</label><select name="category"><option value="">Any</option>
+        <optgroup label="Expenses">{% for c in EXP_CATS %}<option {{ 'selected' if f.category==c[0] }}>{{ c[0] }}</option>{% endfor %}</optgroup>
+        <optgroup label="Income">{% for c in INC_CATS %}<option {{ 'selected' if f.category==c[0] }}>{{ c[0] }}</option>{% endfor %}</optgroup></select></div>
+      <div><label>Vendor</label><select name="vendor"><option value="">Any</option>{% for v in vendors %}<option value="{{ v.id }}" {{ 'selected' if f.vendor==v.id|string }}>{{ v.name }}</option>{% endfor %}</select></div>
+      <div><label>From date</label><input type="date" name="from" value="{{ f['from'] }}"></div>
+      <div><label>To date</label><input type="date" name="to" value="{{ f.to }}"></div>
+      <div><label>Min amount</label><input name="min" inputmode="decimal" value="{{ f.min }}"></div>
+      <div><label>Max amount</label><input name="max" inputmode="decimal" value="{{ f.max }}"></div>
+    </div>
+    <div class="row-btns" style="margin-top:10px"><button class="btn sm">Apply</button><a class="btn sm alt" href="{{ url_for('money_list') }}">Clear</a></div>
+  </details>
+</form>
+
+<div class="kpis">
+  <div class="kpi"><span>Income</span><b class="pos">{{ t.income|money }}</b></div>
+  <div class="kpi"><span>Expenses</span><b class="neg">{{ t.expense|money }}</b></div>
+  <div class="kpi main"><span>Net · {{ t.count }} item{{ 's' if t.count!=1 }}</span><b>{{ t.net|money }}</b></div>
+</div>
+
+{% if t.escrow_paid %}<p class="hint">{{ t.escrow_paid|money }} of taxes/insurance paid from escrow is listed below but not added to the totals (the escrow deposits already were).</p>{% endif %}
+<section class="card">
+{% if rows %}<ul class="list">
+  {% set ns = namespace(m='') %}
+  {% for r in rows %}{% if r.date[:7] != ns.m %}{% set ns.m = r.date[:7] %}<li class="day">{{ MONTHS[r.date[5:7]|int - 1] }} {{ r.date[:4] }}</li>{% endif %}
+  {{ money_row(r, not prop) }}{% endfor %}
+</ul>
+{% else %}<div class="empty"><b>Nothing found</b>Try another year or clear the filters.</div>{% endif %}
+</section>
+{% endblock %}
