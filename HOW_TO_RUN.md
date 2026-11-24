@@ -17,11 +17,11 @@
 - **Pi / Linux:** in the folder, run `docker compose up -d --build`
 
 The first start takes a few minutes while it builds. After that it takes seconds.
-Then open your browser to **http://localhost:8080**
+Then open your browser to **http://localhost:8090**
 
 ## Use it on your phone
 1. Find your computer's or Pi's address on your network (for example `192.168.1.50`).
-2. On your phone, connected to the same Wi-Fi, open `http://192.168.1.50:8080`.
+2. On your phone, connected to the same Wi-Fi, open `http://192.168.1.50:8090`.
 3. Add it to your home screen so it opens like an app:
    - **iPhone:** tap the Share button > **Add to Home Screen**.
    - **Android:** tap the ⋮ menu > **Add to Home screen** (or **Install app**).
