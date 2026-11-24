@@ -4,3 +4,4 @@ __pycache__/
 .git/
 docs/
 .venv/
+rental-tracker.env

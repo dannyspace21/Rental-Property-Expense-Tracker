@@ -9,13 +9,27 @@ import os, shutil, sqlite3, datetime, calendar, glob
 from zoneinfo import ZoneInfo
 from flask import g
 
+def load_settings_file():
+    """Read rental-tracker.env (made by install.sh) if it's next to the app.
+    Real environment variables (e.g. from docker-compose.yml) take priority."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rental-tracker.env")
+    if not os.path.exists(path): return
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line: continue
+            key, value = (part.strip() for part in line.split("=", 1))
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'": value = value[1:-1]
+            os.environ.setdefault(key, value)
+load_settings_file()
+
 DATA_DIR = os.environ.get("DATA_DIR", "data")            # folder where the database lives
 DB_FILE = os.path.join(DATA_DIR, "expenses.db")          # the database file itself
 RECEIPT_DIR = os.path.join(DATA_DIR, "receipts")         # uploaded receipt photos / PDFs
 UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")           # PDFs waiting on the review screen
 BACKUP_DIR = os.path.join(DATA_DIR, "backups")           # automatic daily copies
 KEEP_BACKUPS = int(os.environ.get("KEEP_BACKUPS", "14")) # how many daily copies to keep
-TIMEZONE = os.environ.get("TZ", "America/New_York")      # so "today" matches your clock
+TIMEZONE = os.environ.get("TZ", "")                      # e.g. America/New_York; blank = the computer's own time zone
 DEFAULT_PROPERTY = os.environ.get("PROPERTY_NAME", "My Rental Property")  # name used on first start
 SCHEMA_VERSION = 3
 
@@ -86,9 +100,11 @@ OLD_CATEGORY_MAP = {"travel": "Auto & travel", "repairs": "Repairs", "maintenanc
 
 
 def today():
-    """Today's date in your time zone (set TZ in docker-compose.yml)."""
-    try: return datetime.datetime.now(ZoneInfo(TIMEZONE)).date()
-    except Exception: return datetime.date.today()
+    """Today's date in your time zone (TZ setting, or the computer's own clock if not set)."""
+    if TIMEZONE:
+        try: return datetime.datetime.now(ZoneInfo(TIMEZONE)).date()
+        except Exception: pass
+    return datetime.date.today()
 
 
 # ---------- CONNECTION ----------

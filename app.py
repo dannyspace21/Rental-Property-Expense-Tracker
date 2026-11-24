@@ -875,4 +875,4 @@ def backup():
 
 store.init_db()                                          # create / upgrade tables on startup
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8090, debug=bool(os.environ.get("DEBUG")))
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "8090")), debug=bool(os.environ.get("DEBUG")))
