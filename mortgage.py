@@ -2,7 +2,7 @@
 mortgage.py - read mortgage statements and Form 1098 PDFs
 ==========================================================
 Pulls the numbers out of:
-  * a monthly mortgage statement (PennyMac or any US servicer). Federal rules
+  * a monthly mortgage statement from any US lender or loan servicer. Federal rules
     (CFPB, Regulation Z 1026.41) require every statement to show a "Past Payments
     Breakdown" with principal, interest, escrow and fees, so we look for that.
   * IRS Form 1098 (Mortgage Interest Statement): numbered boxes 1-11.
@@ -97,14 +97,6 @@ def section(text, start, ends, limit=1500):
     cut = [e.start() for pat in ends for e in [re.search(pat, rest, re.I)] if e]
     return rest[:min(cut)] if cut else rest
 
-def lender_name(text):
-    t = text.lower()
-    for key, name in (("pennymac", "PennyMac"), ("rocket mortgage", "Rocket Mortgage"), ("mr. cooper", "Mr. Cooper"),
-                      ("wells fargo", "Wells Fargo"), ("chase", "Chase"), ("newrez", "Newrez"), ("loancare", "LoanCare"),
-                      ("freedom mortgage", "Freedom Mortgage"), ("us bank", "U.S. Bank"), ("u.s. bank", "U.S. Bank")):
-        if key in t: return name
-    return ""
-
 
 # ---------- MONTHLY STATEMENT ----------
 ROWS = [("principal", r"\bprincipal\b(?!\s*(?:balance|reduction))"),
@@ -137,7 +129,7 @@ def breakdown(sec):
 
 def parse_statement(text):
     """Pull the useful numbers out of a monthly mortgage statement."""
-    out = {"found": False, "source": "", "lender": lender_name(text)}
+    out = {"found": False, "source": ""}
     past = table(text, r"past payments? breakdown", [h for h in HEADINGS if "past" not in h])
     last, ytd = breakdown(past) if past else ({}, {})
     if last:
@@ -196,7 +188,7 @@ def box_amount(text, n):
 
 def parse_1098(text):
     """Pull the boxes out of a Form 1098 (plus property tax / insurance paid from escrow if listed)."""
-    out = {"lender": lender_name(text)}
+    out = {}
     for n, key in ((1, "interest"), (2, "principal"), (4, "refund"), (5, "mip"), (6, "points"), (10, "other")):
         out[key] = box_amount(text, n)
     # Property taxes / insurance paid from escrow: often in box 10 ("Other") or on a supplemental page
