@@ -23,7 +23,7 @@ never sent anywhere. It's built to be used from your phone: open it in your phon
   once and they're added automatically each time they come due.
 - **Search and filter** by text, year, category, vendor, date range or amount, then **export to CSV**.
 
-**Mortgage (PennyMac or any US lender)**
+**Mortgage (any US lender)**
 - **Import your monthly mortgage statement (PDF).** The app reads the *Past Payments Breakdown* that every
   US mortgage statement is required to include, and splits the payment into **interest** (tax deductible),
   **principal** and **escrow**. You check the numbers on a review screen before anything is saved.
@@ -71,8 +71,8 @@ never sent anywhere. It's built to be used from your phone: open it in your phon
 <img src="docs/screenshots/phone-1098-review.png" width="230" alt="Comparing a Form 1098">
 </p>
 
-1. Download the PDF from your lender's website. For PennyMac, sign in and open **Statements & Documents**.
-   Monthly statements are there, and your **Form 1098** appears by January 31.
+1. Download the PDF from your mortgage lender's website, usually under **Statements** or **Documents** in your
+   online account. Monthly statements are there, and your **Form 1098** appears by January 31.
 2. In the app go to **More → Mortgage**, pick the property and the PDF, and tap **Read statement** (or **Read 1098**).
 3. Check the numbers on the review screen and tap **Save**.
 
@@ -100,7 +100,7 @@ You can also tick this option yourself when adding a Property taxes or Insurance
 **Good to know**
 - Works with PDFs downloaded from the lender's website. A photo or scan has no readable text, so you'd type the numbers in.
 - The reader looks for the standard section names and box labels, not one exact page layout, so it should work for
-  PennyMac and most other US servicers. If something comes out wrong, fix it on the review screen.
+  most US lenders and loan servicers. If something comes out wrong, fix it on the review screen.
 - Importing the same file twice is blocked. Importing a second 1098 for the same year replaces the first one's adjustments.
 - **Undo** on the Mortgage page removes an import and every entry it created.
 - If you set up a recurring bill for the mortgage, pause it when you start importing statements (the app warns you).

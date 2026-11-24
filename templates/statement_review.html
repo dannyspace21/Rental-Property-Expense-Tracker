@@ -4,7 +4,7 @@
 {% macro mv(v) %}{{ '%.2f'|format(v) if v is number else '' }}{% endmacro %}
 <div class="head"><h1>{{ 'Check your statement' if up else 'Enter a mortgage payment' }}</h1></div>
 {% for w in warn %}<div class="note" style="background:var(--warn-soft);color:var(--warn)">{{ icon('alert') }} {{ w }}</div>{% endfor %}
-{% if p.found %}<div class="flash">{{ icon('check') }} Found the payment breakdown{{ ' from ' + p.lender if p.lender }}. Check the numbers, then save.</div>{% endif %}
+{% if p.found %}<div class="flash">{{ icon('check') }} Found the payment breakdown. Check the numbers, then save.</div>{% endif %}
 <form method="post" action="{{ url_for('statement_save') }}">
   {% if up %}<input type="hidden" name="stored" value="{{ up[0] }}"><input type="hidden" name="filename" value="{{ up[1] }}"><input type="hidden" name="sha" value="{{ up[2] }}">{% endif %}
   <input type="hidden" name="statement_date" value="{{ p.statement_date or '' }}">
@@ -12,7 +12,7 @@
   <section class="card fields two">
     <div><label for="paid_date">Payment date</label><input type="date" id="paid_date" name="paid_date" value="{{ paid.isoformat() }}" required>
       <div class="hint">The payment this statement shows as “paid last month”.</div></div>
-    <div><label for="lender">Lender</label><input id="lender" name="lender" value="{{ lender }}" list="lenders" placeholder="e.g. PennyMac">
+    <div><label for="lender">Lender</label><input id="lender" name="lender" value="{{ lender }}" list="lenders" placeholder="e.g. your mortgage company">
       <datalist id="lenders">{% for l in lenders %}<option value="{{ l }}">{% endfor %}</datalist></div>
     {{ property_select(pid) }}
   </section>

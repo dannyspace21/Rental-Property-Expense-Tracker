@@ -657,7 +657,7 @@ def statement_review():
                     "). Pause it on the Recurring bills page so payments aren't counted twice.")
     lenders = [r["name"] for r in db().execute("SELECT name FROM vendors ORDER BY name")]
     return render_template("statement_review.html", p=p, paid=paid, up=up, warn=warn, pid=pid, lenders=lenders,
-                           lender=p.get("lender") or last_lender(pid))
+                           lender=last_lender(pid))
 
 def last_lender(pid):
     row = db().execute("SELECT v.name FROM transactions t JOIN vendors v ON v.id=t.vendor_id WHERE t.property_id=? "
@@ -732,7 +732,7 @@ def form1098_review():
     rows.append({"key": "mip", "label": "Mortgage insurance premiums (box 5)", "src": p.get("mip"), "have": None,
                  "add": p.get("mip") or None})
     return render_template("f1098_review.html", p=p, up=up, warn=warn, pid=pid, year=year, rows=rows,
-                           lender=p.get("lender") or last_lender(pid))
+                           lender=last_lender(pid))
 
 @app.route("/mortgage/1098/save", methods=["POST"])
 def form1098_save():
