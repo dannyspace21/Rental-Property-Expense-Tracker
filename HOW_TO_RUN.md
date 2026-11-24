@@ -1,16 +1,22 @@
 # How to run your Rental Tracker (no coding needed)
 
-## One-time setup (about 10 minutes)
+There are two ways to run the app. Pick one:
+- **Option A: Docker.** Works on Windows, Mac, Linux, a Raspberry Pi or a Docker-capable NAS.
+- **Option B: Direct install.** For a Linux computer or Raspberry Pi, without Docker.
+
+## Option A: Docker
+
+### One-time setup (about 10 minutes)
 1. Install **Docker Desktop** (free): https://www.docker.com/products/docker-desktop
    Run the installer, accept the defaults, and restart your computer if asked.
-   (On a Raspberry Pi, install Docker with `curl -fsSL https://get.docker.com | sh`.)
+   (On a Raspberry Pi or Linux, install Docker with `curl -fsSL https://get.docker.com | sh`.)
 2. Open **Docker Desktop** once and wait until it says it is running (green/"Engine running").
 3. Unzip this folder somewhere permanent, for example your Documents folder.
    Don't run it from inside the zip file.
-4. Optional: open `docker-compose.yml` in a text editor and set `TZ` to your time zone
-   (for example `America/Chicago` or `America/Los_Angeles`).
+4. Open `docker-compose.yml` in a text editor. Set `PROPERTY_NAME` to your property's name and `TZ` to your
+   time zone (for example `America/Chicago` or `America/Los_Angeles`).
 
-## Start the app
+### Start the app
 - **Windows:** double-click `Start Expenses App.bat`
 - **Mac:** double-click `Start Expenses App.command`
   (if Mac blocks it: right-click it > Open > Open)
@@ -19,8 +25,33 @@
 The first start takes a few minutes while it builds. After that it takes seconds.
 Then open your browser to **http://localhost:8090**
 
+## Option B: Direct install on Linux (no Docker)
+
+### Install (about 5 minutes)
+Open a terminal on the Linux computer or Pi (or connect to it with SSH) and run:
+
+```bash
+sudo apt install git python3 python3-venv
+git clone https://github.com/dannyspace21/Rental-Property-Expense-Tracker.git
+cd Rental-Property-Expense-Tracker
+./install.sh
+```
+(On Fedora, use `sudo dnf install git python3` for the first line.)
+
+- Run `./install.sh` as your normal user, **not** with `sudo`.
+- It asks for your **property name**, then asks for your password once so it can set the app to start automatically.
+- When it's done, it shows the address to open, for example `http://192.168.1.50:8090`.
+
+### Handy commands
+Run these from inside the `Rental-Property-Expense-Tracker` folder:
+- **Is it running?** `systemctl status rental-tracker`
+- **Something wrong?** `journalctl -u rental-tracker -n 50` shows the latest messages.
+- **Update to the newest version:** `git pull && ./install.sh`
+- **Change the port, property name or time zone:** edit `rental-tracker.env`, then run `./install.sh`.
+- **Remove it:** `./install.sh --uninstall` (your data folder is kept).
+
 ## Use it on your phone
-1. Find your computer's or Pi's address on your network (for example `192.168.1.50`).
+1. Find your computer's or Pi's address on your network (for example `192.168.1.50`). On Linux, `hostname -I` shows it.
 2. On your phone, connected to the same Wi-Fi, open `http://192.168.1.50:8090`.
 3. Add it to your home screen so it opens like an app:
    - **iPhone:** tap the Share button > **Add to Home Screen**.
@@ -61,5 +92,7 @@ In the `data` folder next to these files:
 To back up everything, use **More → Download backup** (a .zip with your data and receipts), or copy the `data` folder.
 
 ## Stopping it
-Open Docker Desktop > Containers > press the Stop button. Start it again the same way you started it.
-The app also restarts by itself whenever Docker starts.
+- **Docker:** open Docker Desktop > Containers > press the Stop button (or run `docker compose down` in the folder).
+  Start it again the same way you started it. The app also restarts by itself whenever Docker starts.
+- **Direct install:** `sudo systemctl stop rental-tracker` stops it and `sudo systemctl start rental-tracker`
+  starts it again. It also starts by itself whenever the computer boots.

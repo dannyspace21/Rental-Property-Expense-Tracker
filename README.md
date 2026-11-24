@@ -3,7 +3,7 @@
 A simple, private web app for landlords. Track income and expenses for one or many rental properties,
 see who has paid rent, get maintenance reminders, and print a tax-ready Schedule E summary at year end.
 
-It runs on your own computer or a Raspberry Pi with Docker. Your data stays in the `data/` folder and is
+It runs on your own computer, a Raspberry Pi or a NAS, either with Docker or installed directly on Linux. Your data stays in the `data/` folder and is
 never sent anywhere. It's built to be used from your phone: open it in your phone's browser on your home Wi-Fi.
 
 <p>
@@ -105,20 +105,58 @@ You can also tick this option yourself when adding a Property taxes or Insurance
 - **Undo** on the Mortgage page removes an import and every entry it created.
 - If you set up a recurring bill for the mortgage, pause it when you start importing statements (the app warns you).
 
-## Quick start
-1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop) (or Docker on your Pi) and start it.
-2. Download this project (green **Code** button > **Download ZIP**) and unzip it.
+## Install
+
+There are two ways to run it. Both store your data in the `data/` folder and use port **8090**.
+
+| | Option A: Docker | Option B: Direct install (Linux) |
+|---|---|---|
+| Works on | Windows, Mac, Linux, Raspberry Pi, Docker-capable NAS | Linux with systemd: Raspberry Pi OS, Debian, Ubuntu, Fedora... |
+| You need | Docker | Python 3.9+ (`python3-venv` on Debian/Ubuntu/Pi OS) |
+| Starts on boot | Yes (Docker restarts it) | Yes (as a systemd service) |
+| Update | `git pull && docker compose up -d --build` | `git pull && ./install.sh` |
+| Settings file | `docker-compose.yml` | `rental-tracker.env` |
+
+### Option A: Docker
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop) (or Docker on your Pi/Linux machine) and start it.
+2. Download this project (green **Code** button > **Download ZIP** and unzip it, or `git clone` it).
 3. Windows: double-click `Start Expenses App.bat`. Mac: double-click `Start Expenses App.command`.
    Or run `docker compose up -d --build` in the folder.
-4. Open http://localhost:8090. From your phone, use `http://<computer-or-pi-ip>:8090`.
+4. Open http://localhost:8090. From your phone, use `http://<computer-ip>:8090`.
 
-Optional settings live in `docker-compose.yml`:
+Settings live in `docker-compose.yml`:
 
 | Setting | What it does |
 |---|---|
 | `PROPERTY_NAME` | Name of your first property (used only on the first start; rename it any time under **More → Properties**) |
 | `TZ` | Your time zone, so "today" and rent due dates match your clock (e.g. `America/Chicago`) |
 | `KEEP_BACKUPS` | How many daily automatic backups to keep (`0` turns them off) |
+
+### Option B: Direct install on Linux (no Docker)
+```bash
+sudo apt install git python3 python3-venv      # Debian / Ubuntu / Raspberry Pi OS (Fedora: sudo dnf install git python3)
+git clone https://github.com/dannyspace21/Rental-Property-Expense-Tracker.git
+cd Rental-Property-Expense-Tracker
+./install.sh
+```
+Run it as your normal user, not with `sudo`. The script:
+- asks for your property name,
+- sets up the app with its own copy of its Python libraries in `.venv` (nothing is installed system-wide),
+- installs a `rental-tracker` service that starts on boot and restarts if it ever crashes. It asks for your password once for this step, and the app runs as your user, not root.
+
+Then open `http://<computer-ip>:8090`.
+
+| Task | Command |
+|---|---|
+| Check it's running | `systemctl status rental-tracker` |
+| See the logs | `journalctl -u rental-tracker -n 50` |
+| Update to the latest version | `git pull && ./install.sh` |
+| Change settings | edit `rental-tracker.env`, then `./install.sh` |
+| Install without the background service | `./install.sh --no-service` (it prints the command to start it yourself) |
+| Remove the service (keeps your data) | `./install.sh --uninstall` |
+
+Settings live in `rental-tracker.env`, which is created on the first install and never overwritten:
+`PORT`, `PROPERTY_NAME`, `KEEP_BACKUPS` and `TZ`. Without `TZ`, the app uses the computer's own time zone.
 
 See [HOW_TO_RUN.md](HOW_TO_RUN.md) for beginner-friendly steps, including how to add it to your phone's home screen.
 
@@ -151,10 +189,11 @@ Plain Python (Flask + SQLite), with no build step and no JavaScript framework.
 | `store.py` | Database tables, categories, the upgrade from v1, daily backups and recurring bills |
 | `reports.py` | Totals, rent roll, depreciation, Schedule E, investment metrics and the PDF |
 | `mortgage.py` | Reads mortgage statements and Form 1098 PDFs (with `pypdf`) |
+| `install.sh` | Direct Linux install: Python environment + systemd service |
 | `templates/` | One HTML file per page (`base.html` holds the header and the phone tab bar) |
 | `static/` | `style.css`, a small `app.js` and the app icons |
 
-Run without Docker: `pip install -r requirements.txt && python app.py`
+Run without Docker for development: `pip install -r requirements.txt && python app.py` (port 8090, or set `PORT`).
 
 > The tax figures are estimates to help you and your tax preparer. They aren't tax advice.
 
