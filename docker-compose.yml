@@ -2,7 +2,7 @@ services:
   expenses:
     build: .                   # build the app from the Dockerfile
     ports:
-      - "8080:8080"            # open it in your browser at http://localhost:8080 (or http://<your-pi-ip>:8080)
+      - "8090:8090"            # open it in your browser at http://localhost:8090 (or http://<your-pi-ip>:8090)
     volumes:
       - ./data:/app/data       # your database, receipts and daily backups live in the "data" folder next to this file
     environment:

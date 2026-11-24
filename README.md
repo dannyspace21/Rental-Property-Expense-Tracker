@@ -110,7 +110,7 @@ You can also tick this option yourself when adding a Property taxes or Insurance
 2. Download this project (green **Code** button > **Download ZIP**) and unzip it.
 3. Windows: double-click `Start Expenses App.bat`. Mac: double-click `Start Expenses App.command`.
    Or run `docker compose up -d --build` in the folder.
-4. Open http://localhost:8080. From your phone, use `http://<computer-or-pi-ip>:8080`.
+4. Open http://localhost:8090. From your phone, use `http://<computer-or-pi-ip>:8090`.
 
 Optional settings live in `docker-compose.yml`:
 

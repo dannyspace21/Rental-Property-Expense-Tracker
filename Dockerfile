@@ -7,7 +7,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 # Copy the app code in
 COPY . .
-# The app listens on port 8080
-EXPOSE 8080
+# The app listens on port 8090
+EXPOSE 8090
 # Start the web server (1 worker keeps the database simple and safe)
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8090", "--workers", "1", "app:app"]
