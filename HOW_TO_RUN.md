@@ -61,12 +61,13 @@ Run these from inside the `Rental-Property-Expense-Tracker` folder:
 1. On **Home**, tap **Rename / edit** to give your property its real name (and address).
    Have more than one? Tap **+ Add property** at the top.
 2. **Rent → Add lease**: enter your tenant, rent and due day.
-3. **More → Monthly bills**: add bills that repeat every month (HOA, management fee, insurance…).
+3. Fill in the **Monthly charges** table on Home (management fee, due to agent, HOA) and tap **Save monthly charges**.
 
 ## Everyday use
-- **Add an expense:** on **Home**, pick the property, fill in the date, what it was, category and amount, and tap **Add**.
+- **Add an expense:** on **Home**, pick the property, fill in the date, what it was, category and cost, and tap **Add expense**.
   Tap *Notes, receipt, paid to…* to snap a photo of the receipt.
-- **Fix or delete something:** tap it in the list on Home.
+- **Management fee, agent or HOA:** type it into that month's row in the **Monthly charges** table and tap **Save monthly charges**.
+- **Fix or delete an expense:** tap it in the expenses list on Home.
 - **Rent came in?** On the **Rent** page, tap that month's box to mark it paid. Tap it again to undo.
 - **Tax time:** **Reports** has your Schedule E summary and a **PDF report** button.
 - **Light or dark mode:** tap the button at the top right, or choose on the **More** page.

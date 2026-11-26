@@ -4,7 +4,7 @@
 <h1>More</h1>
 <div class="tiles" style="margin-bottom:14px">
   <a class="tile" href="{{ url_for('properties') }}">{{ icon('building') }}<b>Properties</b><small class="muted">Add, rename or remove properties</small></a>
-  <a class="tile" href="{{ url_for('bills') }}">{{ icon('repeat') }}<b>Monthly bills</b><small class="muted">HOA, management fee, insurance</small></a>
+  <a class="tile" href="{{ url_for('bills') }}">{{ icon('repeat') }}<b>Recurring bills</b><small class="muted">Add a bill automatically every month</small></a>
   <a class="tile" href="{{ url_for('mortgage_page') }}">{{ icon('file') }}<b>Mortgage</b><small class="muted">Import statements &amp; Form 1098</small></a>
   <a class="tile" href="{{ url_for('money_list') }}">{{ icon('search') }}<b>Search &amp; export</b><small class="muted">Find entries, download CSV</small></a>
   <a class="tile" href="{{ url_for('vendors') }}">{{ icon('users') }}<b>Vendors</b><small class="muted">Contractors &amp; 1099 check</small></a>
@@ -28,7 +28,7 @@
 
 <section class="card"><details class="more"><summary>Import from Excel</summary>
   <form method="post" action="{{ url_for('import_excel') }}" enctype="multipart/form-data" class="fields" style="margin-top:8px"
-        data-confirm="This replaces the typed-in expenses for every year found in the file (income, rent and monthly bills are kept). A safety copy is made first. Continue?">
+        data-confirm="This replaces the typed-in expenses for every year found in the file (income, rent and recurring bills are kept). A safety copy is made first. Continue?">
     <p class="hint" style="margin:0">Each sheet named by year (like 2025). Expenses in columns A–C from row 3; monthly management fee, agent and HOA in columns F–H.</p>
     {{ property_select(pid or props[0].id, 'Import into') }}
     <input type="file" name="file" accept=".xlsx" required>

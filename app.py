@@ -156,36 +156,73 @@ def switch_property():
 
 
 # ---------- HOME ----------
+# The original app's "monthly charges" columns. Each is stored as an expense in this category.
+MONTHLY_COLUMNS = [("mgmt", "Management fees", "Mgmt fee", "Management fee"),
+                   ("agent", "Commissions", "Due to agent", "Due to agent"),
+                   ("hoa", "HOA dues", "HOA", "HOA")]
+MONTHLY_CATS = {c[1]: c[0] for c in MONTHLY_COLUMNS}
+
 @app.route("/")
 def home():
-    """The main screen: pick a property, then add and see that year's expenses."""
+    """The main screen, laid out like the original app: pick a property and year,
+    then two separate sections: one-off Expenses, and the Monthly charges table."""
     props = all_properties()
     pid = current_pid() or props[0]["id"]
     prop = next(p for p in props if p["id"] == pid)
     year = year_arg()
     rows = reports.find_transactions(pid=pid, year=year)
-    t = reports.totals(rows)
-    # Monthly table (like the original "monthly charges"): one column per monthly bill,
-    # plus the mortgage and rent received. Everything else goes in the list of entries.
-    bills = db().execute("SELECT * FROM recurring WHERE property_id=? ORDER BY description", (pid,)).fetchall()
-    grid, entries = {}, []
+    expenses, monthly, mortgage, income = [], {}, 0.0, 0.0
     for r in rows:
-        m = int(r["date"][5:7])
-        if r["recurring_id"]: key = r["recurring_id"]
-        elif r["category"] in reports.MORTGAGE_CATS: key = "mortgage"
-        elif r["kind"] == "income" and r["category"] == "Rent" and r["lease_id"]: key = "rent"
+        cash = not r["from_escrow"]
+        if r["kind"] == "income":
+            if cash: income += r["amount"]
+            if not (r["category"] == "Rent" and r["lease_id"]): expenses.append(r)   # rent lives on the Rent page
+        elif r["category"] in MONTHLY_CATS:
+            key = (MONTHLY_CATS[r["category"]], int(r["date"][5:7]))
+            monthly[key] = monthly.get(key, 0.0) + r["amount"]
+        elif r["category"] in reports.MORTGAGE_CATS:
+            mortgage += r["amount"]
         else:
-            entries.append(r); continue
-        grid.setdefault((key, m), []).append(r)
-    columns = [{"key": b["id"], "label": b["description"]} for b in bills
-               if b["active"] or any(k[0] == b["id"] for k in grid)]
-    if any(k[0] == "mortgage" for k in grid): columns.append({"key": "mortgage", "label": "Mortgage"})
-    if any(k[0] == "rent" for k in grid): columns.append({"key": "rent", "label": "Rent received"})
-    col_totals = {c["key"]: sum(r["amount"] for (k, _), items in grid.items() if k == c["key"] for r in items) for c in columns}
+            expenses.append(r)
+    notes = {n["month"]: n["note"] for n in db().execute(
+        "SELECT month, note FROM monthly_notes WHERE property_id=? AND year=?", (pid, year))}
+    months = [{"n": m, "name": MONTHS[m - 1], "note": notes.get(m, ""),
+               **{c[0]: monthly.get((c[0], m), 0.0) for c in MONTHLY_COLUMNS}} for m in range(1, 13)]
+    tot = {c[0]: sum(m[c[0]] for m in months) for c in MONTHLY_COLUMNS}
+    tot["expenses"] = sum(r["amount"] for r in expenses if r["kind"] == "expense" and not r["from_escrow"])
+    tot["mortgage"] = mortgage
+    tot["grand"] = tot["expenses"] + tot["mgmt"] + tot["agent"] + tot["hoa"] + mortgage
+    tot["income"], tot["net"] = income, income - tot["grand"]
     years = sorted(set(reports.years_with_data(pid)) | {year})
     first = today().isoformat() if year == today().year else f"{year}-01-01"
-    return render_template("home.html", prop=prop, pid=pid, year=year, years=years, rows=entries, t=t,
-                           columns=columns, grid=grid, col_totals=col_totals, has_bills=bool(bills), first_date=first)
+    return render_template("home.html", prop=prop, pid=pid, year=year, years=years, rows=expenses, tot=tot,
+                           months=months, columns=MONTHLY_COLUMNS, first_date=first)
+
+@app.route("/monthly/save", methods=["POST"])
+def save_monthly():
+    """Save the whole 12-month table (management fee, agent, HOA, notes) in one go, like the original app."""
+    f = request.form
+    pid, year = f.get("property_id", type=int) or default_pid(), f.get("year", type=int) or today().year
+    for m in range(1, 13):
+        period = f"{year}-{m:02d}"
+        for key, cat, _, desc in MONTHLY_COLUMNS:
+            want = round(num(f.get(f"{key}{m}")), 2)
+            have = db().execute("SELECT id, amount FROM transactions WHERE property_id=? AND kind='expense' AND category=?"
+                                " AND substr(date,1,7)=? ORDER BY id", (pid, cat, period)).fetchall()
+            if abs(sum(h["amount"] for h in have) - want) < 0.005: continue      # unchanged
+            if have:                                                            # keep the first entry, adjust it
+                db().execute("UPDATE transactions SET amount=? WHERE id=?", (want, have[0]["id"]))
+                for h in have[1:]: db().execute("DELETE FROM transactions WHERE id=?", (h["id"],))
+                if not want: db().execute("DELETE FROM transactions WHERE id=?", (have[0]["id"],))
+            elif want:
+                db().execute("INSERT INTO transactions (property_id,kind,date,description,category,amount) VALUES (?,?,?,?,?,?)",
+                             (pid, "expense", f"{period}-01", desc, cat, want))
+        note = (f.get(f"note{m}") or "").strip()
+        db().execute("INSERT INTO monthly_notes (property_id,year,month,note) VALUES (?,?,?,?) "
+                     "ON CONFLICT(property_id,year,month) DO UPDATE SET note=excluded.note", (pid, year, m, note))
+    db().commit()
+    flash("Monthly charges saved.")
+    return redirect(url_for("home", year=year) + "#monthly")
 
 
 # ---------- MONEY (all income & expenses) ----------
@@ -836,7 +873,7 @@ def mortgage_doc_delete(doc_id):
 
 
 # ---------- ABOUT & WHAT'S NEW ----------
-APP_VERSION = "3.0"
+APP_VERSION = "3.1"
 
 def simple_markdown(text):
     """Turn the few Markdown bits used in CHANGELOG.md into HTML (headings, bullets, bold)."""
@@ -921,7 +958,9 @@ def import_excel():
             for col, desc, cat in ((6, "Management fee", "Management fees"), (7, "Due to agent", "Commissions"), (8, "HOA", "HOA dues")):
                 v = ws.cell(row, col).value
                 if isinstance(v, (int, float)) and v:
-                    db().execute(ins, (pid, "expense", f"{year}-{m:02d}-01", desc, cat, v, note)); note = ""
+                    db().execute(ins, (pid, "expense", f"{year}-{m:02d}-01", desc, cat, v, ""))
+            db().execute("INSERT INTO monthly_notes (property_id,year,month,note) VALUES (?,?,?,?) "     # the Note column
+                         "ON CONFLICT(property_id,year,month) DO UPDATE SET note=excluded.note", (pid, year, m, note.strip()))
         done.append(str(year))
     db().commit()
     flash("Imported years: " + ", ".join(done) if done else "No sheets named like a year (e.g. 2025) were found.")
