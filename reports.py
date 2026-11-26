@@ -274,14 +274,6 @@ def pdf_report(pid, year, title):
 # ---------- MORTGAGE ----------
 MORTGAGE_CATS = ("Mortgage interest", "Mortgage principal", "Mortgage escrow")
 
-def mortgage_year(pid, year):
-    """Mortgage totals for a year: what went to interest, principal and escrow,
-    and what the lender paid out of escrow for taxes and insurance."""
-    rows = find_transactions(pid=pid, year=year)
-    out = {c: sum(r["amount"] for r in rows if r["category"] == c) for c in MORTGAGE_CATS}
-    out["escrow_paid"] = sum(r["amount"] for r in rows if r["from_escrow"])
-    return out
-
 def mortgage_docs(pid, kind=None):
     where, args = prop_filter(pid, "d.property_id")
     if kind: where += " AND d.kind=?"; args.append(kind)

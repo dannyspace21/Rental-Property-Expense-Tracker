@@ -174,6 +174,10 @@ CREATE TABLE IF NOT EXISTS mortgage_docs (                   -- imported mortgag
     property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
     kind TEXT NOT NULL CHECK (kind IN ('statement','1098')), doc_date TEXT, year INTEGER,
     stored TEXT, filename TEXT, sha TEXT, data TEXT, created TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS loans (                           -- the mortgage on a property (one per property)
+    property_id INTEGER PRIMARY KEY REFERENCES properties(id) ON DELETE CASCADE,
+    lender TEXT, loan_type TEXT, rate REAL, original_amount REAL, origination_date TEXT,
+    account_last4 TEXT, notes TEXT);
 CREATE TABLE IF NOT EXISTS monthly_notes (                   -- the "Note" column of the monthly charges table
     property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
     year INTEGER NOT NULL, month INTEGER NOT NULL, note TEXT, PRIMARY KEY (property_id, year, month));

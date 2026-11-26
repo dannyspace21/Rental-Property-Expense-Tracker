@@ -37,10 +37,10 @@ Four tabs: **Home · Rent · Reports · More**.
 - **Year-end PDF report** with every entry.
 
 **More**
-- **Properties**: add, rename or remove.
+- **Properties**: tap a property to see and edit its **details**, **loan information** and **Form 1098** history
+  (also reachable from **Rename / edit** on Home).
 - **Recurring bills**: optional. Set a bill up once and it's added every month automatically (a recurring
   management fee or HOA fills in the Monthly charges table for you).
-- **Mortgage**: import your lender's monthly statement and Form 1098 PDFs (details below).
 - **Search & export**: find any entry and download a CSV.
 - **Vendors** (with tap-to-call and a 1099 check) and **Upkeep** (maintenance reminders).
 - **Appearance**: Automatic, Light or Dark mode (also the button at the top right).
@@ -53,48 +53,47 @@ Four tabs: **Home · Rent · Reports · More**.
 
 <img src="docs/screenshots/desktop-home.png" alt="Home screen on a desktop">
 
-## Mortgage statement & Form 1098 import
+## Loan information & Form 1098 (on each property's page)
 
 <p>
-<img src="docs/screenshots/phone-mortgage.png" width="230" alt="Mortgage page">
-<img src="docs/screenshots/phone-statement-review.png" width="230" alt="Checking an imported statement">
-<img src="docs/screenshots/phone-1098-review.png" width="230" alt="Comparing a Form 1098">
+<img src="docs/screenshots/phone-property-loan.png" width="230" alt="Loan information and Form 1098 history on a property's page">
+<img src="docs/screenshots/phone-1098-review.png" width="230" alt="Checking an imported Form 1098">
 </p>
 
-1. Download the PDF from your mortgage lender's website, usually under **Statements** or **Documents** in your
-   online account. Monthly statements are there, and your **Form 1098** appears by January 31.
-2. In the app go to **More → Mortgage**, pick the property and the PDF, and tap **Read statement** (or **Read 1098**).
+Open **More → Properties → your property** (or **Rename / edit** on Home). Below the property details are two sections:
+
+**Loan information**: lender, loan type, interest rate, original loan amount, origination date and the last 4 digits
+of the account number. Fill it in once; importing a Form 1098 fills in the lender, origination date and account for you.
+
+**Form 1098 by year**: your lender sends Form 1098 by January 31.
+1. Download the PDF from your lender's website (usually under **Statements** or **Documents** or **Tax documents**).
+2. On the property's page, choose the file and tap **Import 1098** (or **Enter by hand** to type the boxes in).
 3. Check the numbers on the review screen and tap **Save**.
 
-**What gets recorded**
+Each year gets a row: **interest paid (box 1)**, **balance at the start of the year (box 2)**, **property taxes**,
+**mortgage insurance (box 5)**, a link to the PDF, and **Remove** to undo it.
 
-| From the monthly statement | Category | On Schedule E? | In cash flow? |
-|---|---|---|---|
-| Interest | Mortgage interest | Yes (line 12) | Yes |
-| Principal | Mortgage principal | No | Yes |
-| Escrow | Mortgage escrow | No (see below) | Yes |
-| Fees / late charges | Other | Yes (line 19) | Yes |
+**How it affects your reports**
 
 | From Form 1098 | What happens |
 |---|---|
-| Box 1 - mortgage interest | Compared with the interest already recorded for that year; the difference is added as an adjustment |
+| Box 1: mortgage interest | Compared with any interest already recorded for that year; the difference is added, so your Schedule E matches the form |
 | Property taxes paid from escrow | Added as *Property taxes*, marked **paid from escrow** |
 | Insurance paid from escrow | Added as *Insurance*, marked **paid from escrow** (if the 1098 doesn't list it, take it from your annual escrow statement) |
-| Box 5 - mortgage insurance premiums | Added as *Insurance*, marked **paid from escrow** |
+| Box 5: mortgage insurance premiums | Added as *Insurance*, marked **paid from escrow** |
+| Box 2 balance, box 3 origination date, account number | Saved with that year's 1098 and shown on the property's page |
 
-**Why "paid from escrow"?** The escrow part of each payment is real money leaving your account, so it counts in
-cash flow. But the tax deduction happens when your lender actually *pays* the tax bill or insurance out of escrow.
-Entries marked *paid from escrow* count on Schedule E but aren't counted a second time in cash flow.
-You can also tick this option yourself when adding a Property taxes or Insurance expense.
+**Why "paid from escrow"?** Taxes and insurance your lender pays out of escrow are deductible, so they count on Schedule E.
+They aren't counted again in your cash flow, because that money already left your account as part of each mortgage payment.
+To include the mortgage payment itself in your cash flow, add it once under **More → Recurring bills**.
 
 **Good to know**
-- Works with PDFs downloaded from the lender's website, including the official IRS form filled in electronically and
-  lenders' own year-end statements. A photo or scan has no readable text, so you'd type the numbers in.
-- The reader looks for the standard section names and box labels, not one exact page layout, so it should work for
-  most US lenders and loan servicers. If something comes out wrong, fix it on the review screen.
-- Importing the same file twice is blocked. Importing a second 1098 for the same year replaces the first one's adjustments.
-- **Undo** on the Mortgage page removes an import and every entry it created.
-- If you set up a recurring bill for the mortgage, pause it when you start importing statements (the app warns you).
+- Works with the official IRS form (filled in electronically or printed) and with lenders' own year-end statements.
+  The reader finds each box by its label and position, not one exact layout. If something comes out wrong, fix it on the review screen.
+- A photo or scan has no readable text, so you'd type the numbers in with **Enter by hand**.
+- Importing the same file twice is blocked. Importing a second 1098 for the same year replaces the first one.
+
+<img src="docs/screenshots/desktop-property.png" alt="A property's loan information and Form 1098 history on a desktop">
 
 ## Install
 
@@ -179,7 +178,7 @@ Plain Python (Flask + SQLite), with no build step and no JavaScript framework.
 | `app.py` | The web pages and form handling |
 | `store.py` | Database tables, categories, the upgrade from v1, daily backups and recurring bills |
 | `reports.py` | Totals, rent roll, depreciation, Schedule E, investment metrics and the PDF |
-| `mortgage.py` | Reads mortgage statements and Form 1098 PDFs (with `pypdf`) |
+| `mortgage.py` | Reads Form 1098 PDFs, including filled-in IRS forms (with `pypdf`) |
 | `install.sh` | Direct Linux install: Python environment + systemd service |
 | `templates/` | One HTML file per page (`base.html` holds the header and the phone tab bar) |
 | `CHANGELOG.md` | Release notes, shown in the app under **More → About & what's new** |

@@ -1,15 +1,15 @@
 """
-mortgage.py - read mortgage statements and Form 1098 PDFs
-==========================================================
-Pulls the numbers out of:
-  * a monthly mortgage statement from any US lender or loan servicer. Federal rules
-    (CFPB, Regulation Z 1026.41) require every statement to show a "Past Payments
-    Breakdown" with principal, interest, escrow and fees, so we look for that.
-  * IRS Form 1098 (Mortgage Interest Statement): numbered boxes 1-11.
+mortgage.py - read Form 1098 PDFs
+=================================
+Pulls the numbers out of IRS Form 1098 (Mortgage Interest Statement): the official
+IRS form (filled in electronically or printed) or a lender's own year-end statement.
+Boxes read: 1 interest, 2 outstanding principal, 3 origination date, 4 refund,
+5 mortgage insurance, 6 points, 10 other (often property taxes), 11 acquisition date,
+plus property taxes / insurance paid from escrow, the tax year and the account number.
 
-Nothing here is saved; it only reads. The results go to a review screen
-where you can fix anything before it is recorded. Works only with PDFs that
-contain real text (downloaded statements), not photos or scans.
+Nothing here is saved; it only reads. The results go to a review screen where you
+can fix anything before it is recorded. Works only with PDFs that contain real text
+or form fields (downloaded files), not photos or scans.
 """
 import re, io, datetime
 
@@ -39,30 +39,6 @@ def normalize(text):
         text = text.replace(a, b)
     return text
 
-def table(text, heading, others, max_lines=14):
-    """The block under a table heading, cut to that heading's column.
-    Statements often print two tables side by side; this keeps only ours."""
-    lines = text.split("\n")
-    for i, line in enumerate(lines):
-        m = re.search(heading, line, re.I)
-        if not m: continue
-        left, right = max(0, m.start() - 1), None
-        for pat in others:                                   # another table to the right on the same line?
-            o = re.search(pat, line[m.end():], re.I)
-            if o: right = min(right or 10**6, m.end() + o.start() - 1)
-        out, blanks = [], 0
-        for row in lines[i + 1:i + 1 + max_lines]:
-            part = row[left:right] if right else row[left:]
-            if any(re.match(r"\s*" + pat, part, re.I) for pat in others): break
-            if not part.strip():
-                blanks += 1
-                if blanks >= 2 and out: break
-                continue
-            blanks = 0
-            out.append(part)
-        return "\n".join(out)
-    return ""
-
 def to_num(s):
     """'$1,234.56' -> 1234.56 ; '(12.00)' -> -12.0"""
     if s is None: return None
@@ -70,102 +46,12 @@ def to_num(s):
     v = float(re.sub(r"[^\d.]", "", s) or 0)
     return round(-v if neg else v, 2)
 
-def money_after(text, label, window=120):
-    """First dollar amount that follows a label (on the same line or shortly after)."""
-    m = re.search(label, text, re.I)
-    if not m: return None
-    tail = text[m.end():m.end() + window]
-    n = re.search(MONEY, tail)
-    return to_num(n.group()) if n else None
-
-def find_date(text, label):
-    m = re.search(label + r"[^\d\n]{0,25}(\d{1,2}/\d{1,2}/\d{2,4}|[A-Z][a-z]{2,8}\.? \d{1,2},? \d{4})", text, re.I)
-    return parse_date(m.group(1)) if m else None
-
 def parse_date(s):
     s = s.strip().replace(".", "")
     for fmt in ("%m/%d/%Y", "%m/%d/%y", "%B %d, %Y", "%B %d %Y", "%b %d, %Y", "%b %d %Y"):
         try: return datetime.datetime.strptime(s, fmt).date()
         except ValueError: pass
     return None
-
-def section(text, start, ends, limit=1500):
-    """Text from a heading up to the next heading (or 'limit' characters)."""
-    m = re.search(start, text, re.I)
-    if not m: return ""
-    rest = text[m.end():m.end() + limit]
-    cut = [e.start() for pat in ends for e in [re.search(pat, rest, re.I)] if e]
-    return rest[:min(cut)] if cut else rest
-
-
-# ---------- MONTHLY STATEMENT ----------
-ROWS = [("principal", r"\bprincipal\b(?!\s*(?:balance|reduction))"),
-        ("interest", r"\binterest\b(?!\s*rate)"),
-        ("escrow", r"\bescrow\b(?:\s*\([^)]*\))?(?!\s*(?:balance|shortage|surplus|account))"),
-        ("fees", r"\b(?:fees|late charges?|fees\s*(?:and|&)\s*charges)\b"),
-        ("total", r"\btotal\b(?!\s*(?:fees|amount))")]
-HEADINGS = [r"explanation of amount due", r"transaction activity", r"past payments? breakdown", r"important messages",
-            r"delinquency notice", r"account information", r"amount due\b", r"escrow account"]
-
-def breakdown(sec):
-    """Read principal / interest / escrow / fees / total rows out of a table section.
-    Returns ({row: first column}, {row: second column})."""
-    first, second = {}, {}
-    for key, label in ROWS:                                  # 1) rows printed as "Principal $388.40 $3,862.11"
-        m = re.search(label + r"[^\n$\d]{0,90}?(" + MONEY + r")(?:[ \t]+(" + MONEY + r"))?", sec, re.I)
-        if m:
-            first[key] = to_num(m.group(1))
-            if m.group(2): second[key] = to_num(m.group(2))
-    if len(first) >= 2: return first, second
-    # 2) some PDFs list the labels first, then the numbers in the same order
-    found = [(m.start(), key) for key, label in ROWS for m in [re.search(label, sec, re.I)] if m]
-    found.sort()
-    values = [to_num(v) for v in re.findall(MONEY, sec)]
-    n = len(found)
-    if n >= 2 and len(values) >= n:
-        first = {k: values[i] for i, (_, k) in enumerate(found)}
-        if len(values) >= 2 * n: second = {k: values[n + i] for i, (_, k) in enumerate(found)}
-    return first, second
-
-def parse_statement(text):
-    """Pull the useful numbers out of a monthly mortgage statement."""
-    out = {"found": False, "source": ""}
-    past = table(text, r"past payments? breakdown", [h for h in HEADINGS if "past" not in h])
-    last, ytd = breakdown(past) if past else ({}, {})
-    if last:
-        out["source"] = "past"                               # what you actually paid last month
-    else:
-        due = table(text, r"explanation of amount due", [h for h in HEADINGS if "explanation" not in h])
-        last, ytd = breakdown(due) if due else ({}, {})
-        ytd = {}
-        if last: out["source"] = "due"                       # fallback: next payment's breakdown
-    for k in ("principal", "interest", "escrow", "fees", "total"):
-        out[k] = last.get(k)
-        out["ytd_" + k] = ytd.get(k)
-    out["found"] = any(out[k] for k in ("principal", "interest", "escrow"))
-    out["statement_date"] = find_date(text, r"statement date")
-    out["due_date"] = find_date(text, r"(?:payment )?due date")
-    m = re.search(r"(\d{1,2}/\d{1,2}(?:/\d{2,4})?)\s+(?:regular |monthly |scheduled )?payment(?: received| - thank you| thank you)?\b",
-                  section(text, r"transaction activity", [h for h in HEADINGS if "transaction" not in h], 2500), re.I)
-    paid = None
-    if m:
-        s = m.group(1)
-        if s.count("/") == 1 and out["statement_date"]:
-            s += "/" + str(out["statement_date"].year)
-        paid = parse_date(s)
-        if paid and out["statement_date"] and paid > out["statement_date"]:
-            paid = paid.replace(year=paid.year - 1)
-    if not paid and out["due_date"]:                         # paid last month: one month before the next due date
-        d = out["due_date"]
-        y, mth = (d.year, d.month - 1) if d.month > 1 else (d.year - 1, 12)
-        paid = d.replace(year=y, month=mth, day=min(d.day, 28))
-    out["paid_date"] = paid or out["statement_date"]
-    out["principal_balance"] = money_after(text, r"(?:outstanding|unpaid)\s+principal(?:\s+balance)?|principal\s+balance")
-    out["escrow_balance"] = money_after(text, r"escrow\s+(?:account\s+)?balance")
-    m = re.search(r"interest rate[^%\n]{0,40}?(\d{1,2}\.\d{1,4})\s*%", text, re.I)
-    out["rate"] = float(m.group(1)) if m else None
-    return out
-
 
 # ---------- FORM 1098 ----------
 BOXES = [(1, r"mortgage interest received"), (2, r"outstanding mortgage\s*principal"), (3, r"mortgage origination date"),
