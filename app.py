@@ -796,10 +796,12 @@ def form1098_review():
         up = take_upload()
         if up is False: return redirect(url_for("mortgage_page"))
         if up:
-            if not up[3].strip(): warn.append("This PDF has no readable text (it may be a scan or photo). Please type the boxes in below.")
-            else:
-                p = mortgage.parse_1098(up[3])
-                if not p["found"]: warn.append("We couldn't find box 1 (mortgage interest) in this PDF. Please type the amounts in.")
+            with open(os.path.join(store.UPLOAD_DIR, up[0]), "rb") as fh:
+                p = mortgage.parse_1098_pdf(fh.read())               # reads form fields and page layout
+            if not p["has_text"]:
+                warn.append("This PDF has no readable text (it may be a scan or photo). Please type the boxes in below.")
+            elif not p["found"]:
+                warn.append("We couldn't find box 1 (mortgage interest) in this PDF. Please type the amounts in from the form.")
     year = request.values.get("year", type=int) or p.get("year") or (today().year - 1)
     prev, skip = previous_1098(pid, year)
     if prev: warn.append(f"You already imported a 1098 for {year}. Saving replaces the entries it added.")
@@ -842,7 +844,8 @@ def form1098_save():
     stored = keep_upload(f.get("stored"))
     if stored and ids:
         db().execute("INSERT INTO attachments (transaction_id, filename, stored) VALUES (?,?,?)", (ids[0], clean("filename"), stored))
-    box = {k: num_or_none(f.get(k)) for k in ("box1", "box2", "box5", "taxes", "insurance")}
+    box = {k: num_or_none(f.get(k)) for k in ("box1", "box2", "box5", "box6", "taxes", "insurance")}
+    box.update({"origination": valid_date(f.get("origination")), "account_last4": re.sub(r"\D", "", clean("account_last4"))[-4:] or None})
     db().execute("INSERT INTO mortgage_docs (property_id,kind,doc_date,year,stored,filename,sha,data) VALUES (?,?,?,?,?,?,?,?)",
                  (pid, "1098", date, year, stored, clean("filename"), f.get("sha") or None, json.dumps({"tx": ids, **box})))
     db().commit()
@@ -873,7 +876,7 @@ def mortgage_doc_delete(doc_id):
 
 
 # ---------- ABOUT & WHAT'S NEW ----------
-APP_VERSION = "3.1"
+APP_VERSION = "3.2"
 
 def simple_markdown(text):
     """Turn the few Markdown bits used in CHANGELOG.md into HTML (headings, bullets, bold)."""

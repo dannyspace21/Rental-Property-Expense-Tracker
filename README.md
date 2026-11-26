@@ -88,7 +88,8 @@ Entries marked *paid from escrow* count on Schedule E but aren't counted a secon
 You can also tick this option yourself when adding a Property taxes or Insurance expense.
 
 **Good to know**
-- Works with PDFs downloaded from the lender's website. A photo or scan has no readable text, so you'd type the numbers in.
+- Works with PDFs downloaded from the lender's website, including the official IRS form filled in electronically and
+  lenders' own year-end statements. A photo or scan has no readable text, so you'd type the numbers in.
 - The reader looks for the standard section names and box labels, not one exact page layout, so it should work for
   most US lenders and loan servicers. If something comes out wrong, fix it on the review screen.
 - Importing the same file twice is blocked. Importing a second 1098 for the same year replaces the first one's adjustments.
