@@ -229,27 +229,6 @@ def metrics(prop, year):
             "monthly_cash_flow": (s["net"] / months) if months else None}
 
 
-# ---------- ALERTS FOR THE HOME PAGE ----------
-def alerts(pid):
-    """Things that need attention: rent, maintenance and leases ending soon."""
-    t = today()
-    out = []
-    for r in rent_this_month(pid):
-        if r["status"] in ("late", "partial", "due"):
-            out.append({"kind": "rent", "level": "bad" if r["status"] in ("late", "partial") else "warn", **r})
-    where, args = prop_filter(pid, "t.property_id")
-    soon = (t + datetime.timedelta(days=14)).isoformat()
-    for task in db().execute(f"SELECT t.*, p.name AS property FROM tasks t JOIN properties p ON p.id=t.property_id"
-                             f" WHERE t.done=0 AND t.next_due<=?{where} ORDER BY t.next_due", [soon] + args):
-        out.append({"kind": "task", "level": "bad" if task["next_due"] < t.isoformat() else "warn", "task": task})
-    for l in leases(pid, current_only=True):
-        if l["end_date"]:
-            days = (datetime.date.fromisoformat(l["end_date"]) - t).days
-            if 0 <= days <= 60:
-                out.append({"kind": "lease", "level": "warn", "lease": l, "days": days})
-    return out
-
-
 # ---------- PDF EXPORT ----------
 def pdf_report(pid, year, title):
     """A printable year-end report: summary, Schedule E, income and expense lists."""

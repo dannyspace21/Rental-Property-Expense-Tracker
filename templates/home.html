@@ -1,57 +1,79 @@
-{% extends "base.html" %}{% from "macros.html" import icon, year_chips, money_row, bar_chart with context %}
-{% block title %}Home{% endblock %}
+{% extends "base.html" %}{% from "macros.html" import icon, money_row with context %}
+{% block title %}{{ prop.name }}{% endblock %}
 {% block content %}
-<div class="head"><h1>{{ prop.name if prop else 'All properties' }}</h1></div>
-{{ year_chips(years, year, 'home') }}
 
+{# 1. Pick a property (or add / rename one) #}
+<nav class="chips props" aria-label="Property">
+  {% for p in props %}<a href="{{ url_for('switch_property', pid=p.id, next=url_for('home', year=year)) }}" class="{{ 'on' if p.id==pid }}">{{ p.name }}</a>{% endfor %}
+  <a href="{{ url_for('property_form', next=url_for('home')) }}" class="add">+ Add property</a>
+</nav>
+<div class="head">
+  <div><h1 style="margin:0">{{ prop.name }}</h1>{% if prop.address %}<small>{{ prop.address }}</small>{% endif %}</div>
+  <a class="btn sm ghost" href="{{ url_for('property_form', prop_id=pid, next=url_for('home', year=year)) }}">✎ Rename / edit</a>
+</div>
+
+{# 2. Pick a year #}
+<nav class="chips" aria-label="Year">
+  {% for y in years|reverse %}<a href="{{ url_for('home', year=y) }}" class="{{ 'on' if y==year }}">{{ y }}</a>{% endfor %}
+  <a href="{{ url_for('home', year=years[-1]+1) }}">+ New year</a>
+</nav>
+
+{# 3. Totals for the year #}
 <div class="kpis">
-  <div class="kpi"><span>Income</span><b class="pos">{{ s.income|money }}</b></div>
-  <div class="kpi"><span>Expenses</span><b class="neg">{{ s.expense|money }}</b></div>
-  <div class="kpi main"><span>Net cash flow{{ ' so far' if year==today.year }}</span><b>{{ s.net|money }}</b></div>
+  <div class="kpi main"><span>{{ year }} expenses</span><b>{{ t.expense|money }}</b></div>
+  <div class="kpi"><span>Income</span><b class="pos">{{ t.income|money }}</b></div>
+  <div class="kpi"><span>Net</span><b class="{{ 'pos' if t.net>=0 else 'neg' }}">{{ t.net|money }}</b></div>
 </div>
 
-{% if alerts %}
-<section class="card"><h2>Needs attention</h2><ul class="list">
-{% for a in alerts %}
-  {% if a.kind == 'rent' %}
-  <li><span class="dot {{ 'warn' if a.level=='warn' }}">{{ icon('key') }}</span>
-    <span class="main"><b>Rent {{ a.status }}: {{ a.lease.tenant }}</b>
-      <small>{{ a.balance|money }} due {{ a.due|nice }}{% if not prop %} · {{ a.lease.property }}{% endif %}</small></span>
-    <form method="post" action="{{ url_for('rent_paid', lease_id=a.lease.id) }}"><input type="hidden" name="year" value="{{ today.year }}"><input type="hidden" name="month" value="{{ today.month }}"><input type="hidden" name="next" value="{{ request.full_path }}">
-      <button class="btn sm good">{{ icon('check') }}Mark paid</button></form></li>
-  {% elif a.kind == 'task' %}
-  <li><a class="rowlink" href="{{ url_for('upkeep') }}#task{{ a.task.id }}"><span class="dot {{ 'warn' if a.level=='warn' }}">{{ icon('tool') }}</span>
-    <span class="main"><b>{{ a.task.title }}</b><small>{{ 'Overdue since' if a.level=='bad' else 'Due' }} {{ a.task.next_due|nice }}{% if not prop %} · {{ a.task.property }}{% endif %}</small></span>
-    <span class="btn sm ghost">Open</span></a></li>
-  {% else %}
-  <li><a class="rowlink" href="{{ url_for('lease_form', lease_id=a.lease.id) }}"><span class="dot warn">{{ icon('clock') }}</span>
-    <span class="main"><b>Lease ends in {{ a.days }} day{{ 's' if a.days!=1 }}</b><small>{{ a.lease.tenant }} · {{ a.lease.end_date|nice }}</small></span>
-    <span class="btn sm ghost">Open</span></a></li>
-  {% endif %}
-{% endfor %}</ul></section>
-{% endif %}
+{# 4. Add an expense right here #}
+<section class="card"><h2>Add an expense or income</h2>
+<form method="post" action="{{ url_for('money_save') }}" enctype="multipart/form-data" id="entry" class="quick">
+  <input type="hidden" name="from_home" value="1"><input type="hidden" name="property_id" value="{{ pid }}">
+  <div class="seg" role="radiogroup" aria-label="Type" style="grid-column:1/-1">
+    <input type="radio" name="kind" id="k-exp" value="expense" checked><label for="k-exp">− Expense</label>
+    <input type="radio" name="kind" id="k-inc" value="income"><label for="k-inc">+ Income</label>
+  </div>
+  <div><label for="date">Date</label><input type="date" id="date" name="date" value="{{ first_date }}" required></div>
+  <div class="grow"><label for="description">What was it?</label><input id="description" name="description" required placeholder="e.g. Water heater repair"></div>
+  <div><label>Category</label>
+    <div data-kind="expense"><select name="category_expense" aria-label="Expense category">{% for c in EXP_CATS %}<option data-hint="{{ c[2] }}" {{ 'selected' if c[0]=='Repairs' }}>{{ c[0] }}</option>{% endfor %}</select></div>
+    <div data-kind="income"><select name="category_income" aria-label="Income category">{% for c in INC_CATS %}<option data-hint="{{ c[2] }}">{{ c[0] }}</option>{% endfor %}</select></div></div>
+  <div><label for="amount">Amount ($)</label><input id="amount" name="amount" inputmode="decimal" required placeholder="0.00"></div>
+  <details class="more" style="grid-column:1/-1"><summary>Notes, receipt, paid to…</summary>
+    <div class="fields two" style="margin-top:8px">
+      <div><label for="notes">Notes</label><input id="notes" name="notes"></div>
+      <div data-kind="expense"><label for="vendor">Paid to</label><input id="vendor" name="vendor" autocomplete="off" placeholder="e.g. Rapid Plumbing"></div>
+      <div class="wide"><label for="receipts">{{ icon('camera')|safe }} Receipt photo or PDF</label><input type="file" id="receipts" name="receipts" accept="image/*,application/pdf" multiple></div>
+    </div>
+  </details>
+  <div style="grid-column:1/-1"><button class="btn">{{ icon('check') }}Add</button> <span class="hint" id="cat-hint"></span></div>
+</form></section>
 
-{% if per_property|length > 1 %}
-<section class="card"><h2>By property · {{ year }}</h2><ul class="list">
-  {% for r in per_property %}<li><a class="rowlink" href="{{ url_for('switch_property', pid=r.p.id, next=url_for('home', year=year)) }}">
-    <span class="dot info">{{ icon('building') }}</span>
-    <span class="main"><b>{{ r.p.name }}</b><small>In {{ r.income|money }} · Out {{ r.expense|money }}</small></span>
-    <span class="amt {{ 'pos' if r.net>=0 else 'neg' }}">{{ r.net|money }}</span></a></li>{% endfor %}
-</ul></section>
-{% endif %}
+{# 5. This year's one-off entries #}
+<section class="card" id="list"><div class="head"><h2>{{ year }} expenses &amp; other entries</h2><span class="badge">{{ rows|length }}</span></div>
+{% if rows %}<ul class="list">
+  {% set ns = namespace(m='') %}
+  {% for r in rows %}{% if r.date[:7] != ns.m %}{% set ns.m = r.date[:7] %}<li class="day">{{ MONTHS[r.date[5:7]|int - 1] }}</li>{% endif %}
+  {{ money_row(r) }}{% endfor %}
+</ul><p class="hint">Tap an entry to edit or delete it. Monthly bills, mortgage payments and rent are in the table below.</p>
+{% else %}<div class="empty"><b>Nothing for {{ year }} yet</b>Use the form above to add your first expense.</div>{% endif %}
+</section>
 
-<div class="grid side">
-  <section class="card"><h2>Month by month</h2>{{ bar_chart(chart) }}</section>
-  <section class="card"><h2>Where the money went</h2>
-    {% if s.categories %}{% set top = s.categories[0][1] %}
-      {% for name, amt in s.categories[:7] %}<div class="hbar"><div class="lbl"><span>{{ name }}</span><b>{{ amt|money }}</b></div>
-        <div class="track"><div class="fill" style="width:{{ (amt/top*100)|round(1) }}%"></div></div></div>{% endfor %}
-    {% else %}<p class="empty">No expenses in {{ year }} yet.</p>{% endif %}
-  </section>
-</div>
-
-<section class="card"><div class="head"><h2>Recent activity</h2><a class="btn sm ghost" href="{{ url_for('money_list') }}">See all</a></div>
-  {% if recent %}<ul class="list">{% for r in recent %}{{ money_row(r, not prop) }}{% endfor %}</ul>
-  {% else %}<div class="empty"><b>Nothing recorded yet</b>Tap <b style="display:inline">+ Add</b> to log your first expense or rent payment.</div>{% endif %}
+{# 6. Month by month, like the original monthly charges table #}
+<section class="card" id="monthly"><div class="head"><h2>Month by month</h2><a class="btn sm ghost" href="{{ url_for('bills') }}">{{ 'Monthly bills' if has_bills else '+ Add a monthly bill' }}</a></div>
+{% if columns %}
+<div class="scroll"><table>
+  <thead><tr><th>Month</th>{% for c in columns %}<th class="r">{{ c.label }}</th>{% endfor %}</tr></thead>
+  <tbody>{% for m in range(1, 13) %}<tr><td>{{ MONTHS[m-1] }}</td>
+    {% for c in columns %}{% set items = grid.get((c.key, m), []) %}<td class="r">{% if items %}
+      {% set total = items|sum(attribute='amount') %}
+      {% if c.key == 'rent' %}<a class="pos" href="{{ url_for('rent', year=year) }}">{{ total|money }}</a>
+      {% elif c.key == 'mortgage' %}<a href="{{ url_for('mortgage_page', year=year) }}">{{ total|money }}</a>
+      {% else %}<a href="{{ url_for('money_form', tx_id=items[0].id, next=url_for('home', year=year) + '#monthly') }}">{{ total|money }}</a>{% endif %}
+    {% else %}<span class="muted">—</span>{% endif %}</td>{% endfor %}</tr>{% endfor %}</tbody>
+  <tfoot><tr><td>Total</td>{% for c in columns %}<td class="r">{{ col_totals[c.key]|money }}</td>{% endfor %}</tr></tfoot>
+</table></div>
+<p class="hint">Monthly bills are added automatically. Tap an amount to change it; mortgage opens the Mortgage page and rent opens the Rent page.</p>
+{% else %}<p class="empty" style="padding:8px 0">Management fee, HOA, insurance… Set them up once with <b>+ Add a monthly bill</b> and they show up here every month automatically.</p>{% endif %}
 </section>
 {% endblock %}

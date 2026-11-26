@@ -1,10 +1,13 @@
-{% extends "base.html" %}{% from "macros.html" import icon, year_chips with context %}
+{% extends "base.html" %}{% from "macros.html" import icon, year_chips, bar_chart, property_chips with context %}
 {% block title %}Reports{% endblock %}
 {% block content %}
 {% macro pct(v) %}{{ '%.1f%%'|format(v) if v is not none else '—' }}{% endmacro %}
 <div class="head"><h1>Reports</h1>
   <div class="row-btns"><a class="btn sm" href="{{ url_for('report_pdf', year=year) }}">{{ icon('file') }}PDF report</a></div></div>
+{{ property_chips() }}
 {{ year_chips(years, year, 'reports_page') }}
+
+<section class="card"><h2>Month by month · {{ year }}</h2>{{ bar_chart(chart) }}</section>
 
 <section class="card"><div class="head"><h2>Schedule E · {{ year }}</h2><a class="btn sm ghost" href="{{ url_for('schedule_e_csv', year=year) }}">{{ icon('download') }}CSV</a></div>
 <p class="hint" style="margin-top:-6px">Your totals for each line of IRS Schedule E{{ ' (one per property: pick a property at the top)' if not prop and props|length>1 }}.

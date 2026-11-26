@@ -2,17 +2,18 @@
 {% block title %}Property{% endblock %}
 {% block content %}
 {% macro moneyval(v) %}{{ '%.2f'|format(v) if v is not none else '' }}{% endmacro %}
-<div class="head"><h1>{{ p.name if p else 'New property' }}</h1></div>
+<div class="head"><h1>{{ 'Edit ' + p.name if p else 'Add a property' }}</h1></div>
 <form method="post" action="{{ url_for('property_save') }}">
   {% if p %}<input type="hidden" name="id" value="{{ p.id }}">{% endif %}
+  <input type="hidden" name="next" value="{{ next }}">
   <section class="card fields two">
     <div><label for="name">Name</label><input id="name" name="name" required value="{{ p.name if p else '' }}" placeholder="e.g. Maple St Duplex"></div>
     <div><label for="units">Units</label><input id="units" name="units" type="number" min="1" value="{{ p.units if p else 1 }}"></div>
     <div class="wide"><label for="address">Address</label><input id="address" name="address" value="{{ p.address or '' if p else '' }}"></div>
     <div class="wide"><label for="notes">Notes</label><textarea id="notes" name="notes" rows="2" placeholder="Lockbox code, parcel number, etc.">{{ p.notes or '' if p else '' }}</textarea></div>
   </section>
-  <section class="card"><h2>Purchase & value <small>(optional)</small></h2>
-    <p class="hint" style="margin-top:-6px">Used for depreciation and the investment numbers on Reports. Skip anything you don't know.</p>
+  <section class="card"><details class="more" {{ 'open' if p and p.purchase_price }}><summary>Purchase details (optional)</summary>
+    <p class="hint">Only used for depreciation and the investment numbers on Reports. Skip anything you don't know.</p>
     <div class="fields two">
       <div><label for="pd">Purchase date</label><input type="date" id="pd" name="purchase_date" value="{{ p.purchase_date or '' if p else '' }}"></div>
       <div><label for="pp">Purchase price</label><input id="pp" name="purchase_price" inputmode="decimal" value="{{ moneyval(p.purchase_price) if p }}"></div>
@@ -22,8 +23,8 @@
       <div><label for="lv">Land value</label><input id="lv" name="land_value" inputmode="decimal" value="{{ moneyval(p.land_value) if p }}"><div class="hint">Land can't be depreciated. Your county tax bill usually shows it.</div></div>
       <div><label for="isd">First available for rent</label><input type="date" id="isd" name="in_service_date" value="{{ p.in_service_date or '' if p else '' }}"><div class="hint">Leave blank to use the purchase date.</div></div>
     </div>
-  </section>
-  <div class="sticky-save row-btns"><button class="btn" style="flex:1">{{ icon('check') }}Save property</button><a class="btn alt" href="{{ url_for('properties') }}">Cancel</a></div>
+  </details></section>
+  <div class="sticky-save row-btns"><button class="btn" style="flex:1">{{ icon('check') }}Save property</button><a class="btn alt" href="{{ next or url_for('home') }}">Cancel</a></div>
 </form>
 {% if p and count > 1 %}
 <form method="post" action="{{ url_for('property_delete', prop_id=p.id) }}" data-confirm="Delete {{ p.name }}? Its leases, bills and reminders are deleted too.">

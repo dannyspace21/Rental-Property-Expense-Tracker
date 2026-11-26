@@ -58,3 +58,11 @@
 <select id="{{ id }}" name="property_id">{% for p in props %}<option value="{{ p.id }}" {{ 'selected' if p.id==selected }}>{{ p.name }}</option>{% endfor %}</select></div>
 {% else %}<input type="hidden" name="property_id" value="{{ props[0].id }}">{% endif %}
 {%- endmacro %}
+
+{# Property tabs for pages other than Home (only shown when you have more than one property) #}
+{% macro property_chips(allow_all=True) -%}
+{% if props|length > 1 %}<nav class="chips" aria-label="Property">
+  {% if allow_all %}<a href="{{ url_for('switch_property', pid='all', next=request.full_path) }}" class="{{ 'on' if not pid }}">All properties</a>{% endif %}
+  {% for p in props %}<a href="{{ url_for('switch_property', pid=p.id, next=request.full_path) }}" class="{{ 'on' if p.id==pid }}">{{ p.name }}</a>{% endfor %}
+</nav>{% endif %}
+{%- endmacro %}

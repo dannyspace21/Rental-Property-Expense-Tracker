@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}About{% endblock %}
+{% block content %}
+<h1>About</h1>
+<section class="card">
+  <h2 style="margin-bottom:4px">Rental Tracker <span class="badge">Version {{ version }}</span></h2>
+  <p style="margin:0">A simple, private app for tracking your rental property expenses, income and rent.
+    Your data stays on your own device in the <code>data</code> folder. No account, no cloud.</p>
+</section>
+<section class="card notes"><h2 style="margin-bottom:10px">What's new</h2>{{ notes }}</section>
+{% endblock %}

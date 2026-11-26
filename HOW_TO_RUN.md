@@ -58,17 +58,18 @@ Run these from inside the `Rental-Property-Expense-Tracker` folder:
    - **Android:** tap the ⋮ menu > **Add to Home screen** (or **Install app**).
 
 ## First steps
-1. **More → Properties**: rename your property and (optionally) add the purchase price, down payment and land value.
-   Add more properties here too.
+1. On **Home**, tap **Rename / edit** to give your property its real name (and address).
+   Have more than one? Tap **+ Add property** at the top.
 2. **Rent → Add lease**: enter your tenant, rent and due day.
-3. **More → Recurring bills**: add bills that repeat (HOA, management fee, insurance, taxes, mortgage).
-4. **More → Upkeep**: tap a suggestion such as "Replace HVAC filter" to get reminders.
+3. **More → Monthly bills**: add bills that repeat every month (HOA, management fee, insurance…).
 
 ## Everyday use
-- Tap the big **+** button to log an expense or income. Snap a photo of the receipt right there.
-- When rent comes in, tap **Mark paid** on the Home screen or the Rent page.
-- Tap any item in **Money** to edit or delete it.
-- **Reports** has your Schedule E summary and a **PDF report** button for tax time.
+- **Add an expense:** on **Home**, pick the property, fill in the date, what it was, category and amount, and tap **Add**.
+  Tap *Notes, receipt, paid to…* to snap a photo of the receipt.
+- **Fix or delete something:** tap it in the list on Home.
+- **Rent came in?** On the **Rent** page, tap that month's box to mark it paid. Tap it again to undo.
+- **Tax time:** **Reports** has your Schedule E summary and a **PDF report** button.
+- **Light or dark mode:** tap the button at the top right, or choose on the **More** page.
 
 ## Import your mortgage statements
 1. Sign in to your mortgage lender's website and find your statements (usually under **Statements** or **Documents**).
@@ -89,7 +90,7 @@ In the `data` folder next to these files:
 - `receipts/`: receipt photos and PDFs
 - `backups/`: automatic daily copies (the last 14 days)
 
-To back up everything, use **More → Download backup** (a .zip with your data and receipts), or copy the `data` folder.
+To back up everything, use **More → Download everything (.zip)** (your data and receipts), or copy the `data` folder.
 
 ## Stopping it
 - **Docker:** open Docker Desktop > Containers > press the Stop button (or run `docker compose down` in the folder).
