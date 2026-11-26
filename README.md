@@ -10,20 +10,20 @@ phone's browser on your home Wi-Fi.
 <p>
 <img src="docs/screenshots/phone-home.png" width="230" alt="Home screen on a phone">
 <img src="docs/screenshots/phone-rent.png" width="230" alt="Rent page on a phone">
-<img src="docs/screenshots/phone-home-dark.png" width="230" alt="Home screen in dark mode">
+<img src="docs/screenshots/phone-home-dark.png" width="230" alt="Monthly charges table in dark mode">
 </p>
 
 ## How it's organized
 Four tabs: **Home · Rent · Reports · More**.
 
-**Home: your expenses, the way the original app worked**
+**Home: laid out like the original app**
 - **Pick your property** at the top. **+ Add property** and **Rename / edit** are right there.
-- **Pick a year**, see the year's **expenses, income and net** at a glance.
-- **Add an expense** (or income) right on the page: date, what it was, category, amount. Notes, a receipt photo
-  and who you paid are tucked under *Notes, receipt, paid to…*.
-- **That year's entries** below. Tap one to edit or delete it.
-- **Month by month table**, like the original monthly charges: one column per monthly bill (management fee, HOA…),
-  plus your mortgage and rent received.
+- **Pick a year** and see the **summary**: Total for the year, Expenses, Management fees, Due to agent and HOA.
+- Two separate sections:
+  - **Expenses:** add one right on the page (date, what it was, category, cost) and see that year's list.
+    Notes, a receipt photo and who you paid are tucked under *Notes, receipt, paid to…*. Tap an expense to edit or delete it.
+  - **Monthly charges:** the original 12-month table with **Mgmt fee**, **Due to agent**, **HOA** and **Note** columns.
+    Type the amounts in and tap **Save monthly charges**.
 
 **Rent**
 - Each lease shows a **box for every month**. Tap a month to mark it **paid**, past months too, and tap again to undo.
@@ -38,7 +38,8 @@ Four tabs: **Home · Rent · Reports · More**.
 
 **More**
 - **Properties**: add, rename or remove.
-- **Monthly bills**: set up HOA, management fee, insurance and so on once; they're added every month automatically.
+- **Recurring bills**: optional. Set a bill up once and it's added every month automatically (a recurring
+  management fee or HOA fills in the Monthly charges table for you).
 - **Mortgage**: import your lender's monthly statement and Form 1098 PDFs (details below).
 - **Search & export**: find any entry and download a CSV.
 - **Vendors** (with tap-to-call and a 1099 check) and **Upkeep** (maintenance reminders).
@@ -164,7 +165,7 @@ The old tables are kept in the database (renamed `legacy_expenses` and `legacy_m
 Each sheet is named by year (e.g. `2025`). Expenses are in columns A (description), B (date), C (cost),
 starting at row 3 and ending at a row labeled "Total". The 12 monthly rows are in rows 3-14 with
 management fee, agent and HOA in columns F, G, H and an optional note in column I.
-Importing replaces the typed-in expenses for that property and year. Income, rent and monthly bills are kept,
+Importing replaces the typed-in expenses for that property and year. Income, rent and recurring bills are kept,
 and a safety copy is saved first as `data/backup-before-import.db`.
 
 <img src="docs/screenshots/desktop-reports.png" alt="Reports page with the Schedule E summary">

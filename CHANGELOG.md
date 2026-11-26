@@ -1,5 +1,13 @@
 # What's new
 
+## Version 3.1 · November 26, 2026
+Expenses and monthly charges are separate again, just like the original app.
+- **Home has two separate sections:** **Expenses** (repairs, trips, supplies… with the add form and the year's list) and **Monthly charges**, the original 12-month table with **Mgmt fee**, **Due to agent**, **HOA** and **Note** columns.
+- Type straight into the monthly table and tap **Save monthly charges**, like before.
+- The summary is split again: **Total for the year**, **Expenses**, **Management fees**, **Due to agent**, **HOA** (and **Mortgage** if you import statements).
+- Your original monthly notes (like "late fee") are back in the Note column.
+- "Monthly bills" under More is renamed **Recurring bills** so it isn't confused with Monthly charges.
+
 ## Version 3.0 · November 26, 2026
 A simpler, cleaner layout built around what matters most: your expenses.
 - **Home works like the original app again:** pick your property at the top, pick a year, and add expenses right on the page. That year's list and your monthly bills table are below.

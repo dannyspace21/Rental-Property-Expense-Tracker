@@ -174,6 +174,9 @@ CREATE TABLE IF NOT EXISTS mortgage_docs (                   -- imported mortgag
     property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
     kind TEXT NOT NULL CHECK (kind IN ('statement','1098')), doc_date TEXT, year INTEGER,
     stored TEXT, filename TEXT, sha TEXT, data TEXT, created TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS monthly_notes (                   -- the "Note" column of the monthly charges table
+    property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+    year INTEGER NOT NULL, month INTEGER NOT NULL, note TEXT, PRIMARY KEY (property_id, year, month));
 CREATE TABLE IF NOT EXISTS task_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
@@ -198,6 +201,12 @@ def init_db():
         conn.execute("INSERT INTO properties (name) VALUES (?)", (DEFAULT_PROPERTY,))
     if version < SCHEMA_VERSION and "expenses" in tables:
         migrate_v1(conn)
+    # Databases upgraded before the monthly notes table existed: bring the original notes back once
+    names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if "legacy_monthly" in names and not conn.execute("SELECT 1 FROM monthly_notes").fetchone():
+        first = conn.execute("SELECT id FROM properties ORDER BY id LIMIT 1").fetchone()[0]
+        conn.execute("INSERT OR IGNORE INTO monthly_notes SELECT ?, year, month, trim(note) FROM legacy_monthly"
+                     " WHERE trim(coalesce(note,''))<>''", (first,))
     cols = {r[1] for r in conn.execute("PRAGMA table_info(transactions)")}
     if "from_escrow" not in cols:                        # added in version 3
         conn.execute("ALTER TABLE transactions ADD COLUMN from_escrow INTEGER DEFAULT 0")
@@ -236,6 +245,8 @@ def migrate_v1(conn):
                 if m[col]:
                     conn.execute("INSERT INTO transactions (property_id,kind,date,description,category,amount,notes) VALUES (?,?,?,?,?,?,?)",
                                  (pid, "expense", date, desc, cat, m[col], note)); note = ""
+            if (m["note"] or "").strip():
+                conn.execute("INSERT OR REPLACE INTO monthly_notes VALUES (?,?,?,?)", (pid, m["year"], m["month"], m["note"].strip()))
         conn.execute("ALTER TABLE monthly RENAME TO legacy_monthly")
     conn.execute("ALTER TABLE expenses RENAME TO legacy_expenses")
 

@@ -218,3 +218,24 @@ table.grid12 td:first-child,table.grid12 th:first-child{text-align:left;position
 .notes h2{font-size:18px;margin:22px 0 4px} .notes h2:first-child{margin-top:0} .notes h3{font-size:15px;margin:12px 0 4px;color:var(--muted)}
 .notes ul{margin:4px 0 8px;padding-left:20px} .notes li{margin:3px 0}
 .chips.props{flex-wrap:wrap;overflow:visible}
+
+/* ----- Home: yearly summary boxes (like the original) ----- */
+.totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.totals>div,.totals>a{padding:12px 14px;border:1px solid var(--line);border-radius:12px;color:inherit;text-decoration:none;min-width:0}
+.totals span{display:block;color:var(--muted);font-size:13px;font-weight:600}
+.totals b{font-size:20px;white-space:nowrap}
+.totals .big{background:var(--brand);border-color:var(--brand);color:#fff;grid-column:1/-1} .totals .big span{color:#cfe0ea} .totals .big b{font-size:26px}
+@media (min-width:860px){.totals .big{grid-column:auto}}
+
+/* ----- Home: monthly charges table you type into ----- */
+table.monthly td{padding:5px 6px} table.monthly th{padding:6px}
+table.monthly input{min-height:40px;padding:7px 9px;font-size:16px;min-width:84px}
+table.monthly td:last-child input{min-width:150px}
+table.monthly td:first-child{font-weight:600;white-space:nowrap}
+.seg.small label{padding:7px;font-size:15px}
+table.monthly .short{display:none}
+@media (max-width:600px){
+  table.monthly .long{display:none} table.monthly .short{display:inline}
+  table.monthly input{min-width:74px;padding:7px 6px} table.monthly td,table.monthly th{padding:4px 3px}
+  table.monthly th{font-size:12px;white-space:normal}
+}
