@@ -205,3 +205,135 @@ def parse_1098(text):
     out["year"] = years[0] if years else None
     out["found"] = out["interest"] is not None
     return out
+
+
+# ---------- FORM 1098: read by position (works with filled-in IRS forms and lender statements) ----------
+# Real 1098s differ a lot: the official IRS form filled in electronically keeps the numbers in form
+# fields (not in the page text), boxes 2+3 and 4+5 sit side by side with the value *below* each label,
+# and many lenders print their own "year-end statement" with wording like "Interest Paid".
+# So instead of reading the text top to bottom, we note where every label and every value sits on the
+# page and match each label with the closest value to its right or just below it.
+
+AMOUNT = r"\(?-?\$?\s?\d{1,3}(?:,\d{3})+(?:\.\d{2})?\)?|\(?-?\$?\s?\d+\.\d{2}\)?"
+DATE = r"\d{1,2}/\d{1,2}/\d{2,4}|\d{4}-\d{2}-\d{2}|[A-Z][a-z]{2,8}\.? \d{1,2},? \d{4}"
+# (key, label pattern, kind of value). Order matters only for readability.
+LABELS_1098 = [
+    ("interest", r"mortgage interest received|(?:total |mortgage )?interest (?:paid|received)(?! to date)|\binterest\s+paid\b", "money"),
+    ("principal", r"outstanding mortgage|outstanding principal|(?:unpaid |beginning |current )?principal balance|unpaid principal", "money"),
+    ("origination", r"origination date|loan (?:open|origination) date|date of (?:the )?loan", "date"),
+    ("refund", r"refund of overpaid", "money"),
+    ("mip", r"mortgage insurance(?: premiums?)?|\bPMI\b|\bMIP\b", "money"),
+    ("points", r"points paid", "money"),
+    ("other", r"(?:^|\b10\s+)other\b", "money"),
+    ("acquisition", r"acquisition date", "date"),
+    ("taxes", r"(?:real estate|property|county|city|town|school)\s+tax(?:es)?(?:\s+(?:paid|disbursed|disbursements?))?", "money"),
+    ("insurance", r"(?:hazard|homeowners?'?|home|flood|dwelling)\s+insurance(?:\s+(?:paid|disbursed|disbursements?))?", "money"),
+    ("year", r"calendar year|tax year|for (?:the )?year", "year"),
+    ("account", r"account (?:number|no\.?|#)|loan (?:number|no\.?|#)", "account"),
+]
+VALUE_RE = {"money": AMOUNT, "date": DATE, "year": r"\b20\d{2}\b", "account": r"[\dXx*#-]{4,}"}
+
+
+def pdf_pieces(data, max_pages=6):
+    """Every bit of text on the pages plus every filled-in form field, with where it sits.
+    Returns a list of dicts: page, x, y (PDF points, y grows upward), size, text."""
+    import logging
+    from pypdf import PdfReader
+    logging.getLogger("pypdf").setLevel(logging.ERROR)          # fonts warnings are harmless here
+    pieces = []
+    try:
+        reader = PdfReader(io.BytesIO(data))
+        if reader.is_encrypted: reader.decrypt("")
+    except Exception:
+        return pieces
+    for pno, page in enumerate(reader.pages[:max_pages]):
+        def visit(text, cm, tm, font, size, pno=pno):
+            t = normalize(text or "").strip()
+            if not t: return
+            x = tm[4] * cm[0] + tm[5] * cm[2] + cm[4]
+            y = tm[4] * cm[1] + tm[5] * cm[3] + cm[5]
+            scale = abs(tm[0] * cm[0]) or 1
+            for line in t.split("\n"):
+                if line.strip():
+                    pieces.append({"page": pno, "x": x, "y": y, "size": (size or 9) * scale, "text": line.strip()})
+                y -= (size or 9) * scale * 1.2
+        try: page.extract_text(visitor_text=visit)
+        except Exception: pass
+        for annot in page.get("/Annots") or []:                  # values typed into the form's fields
+            try:
+                a = annot.get_object()
+                if a.get("/Subtype") != "/Widget": continue
+                value = a.get("/V") if "/V" in a else a.get("/Parent", {}).get_object().get("/V") if "/Parent" in a else None
+                if value is None or str(value).startswith("/"): continue   # empty, or a checkbox state
+                x0, y0, x1, y1 = (float(v) for v in a["/Rect"])
+                for i, line in enumerate(str(value).splitlines()):
+                    if line.strip():
+                        pieces.append({"page": pno, "x": min(x0, x1) + 2, "y": max(y0, y1) - 9 - 11 * i,
+                                       "size": 9, "text": normalize(line).strip()})
+            except Exception:
+                continue
+    return pieces
+
+
+def match_labels(pieces, labels=LABELS_1098):
+    """Pair each label with the nearest value to its right or just below it. Each value is used once."""
+    found_labels, options = [], []
+    for p in pieces:
+        for key, pat, kind in labels:
+            m = re.search(pat, p["text"], re.I)
+            if m: found_labels.append((key, kind, p, m.end()))
+    for key, kind, lab, end in found_labels:
+        rx = re.compile(VALUE_RE[kind], re.I)
+        # a value printed in the same piece, right after the label ("Interest Paid  $13,512.66")
+        same = rx.search(lab["text"][end:])
+        if same:
+            options.append((0.0, key, id(lab), same.group(), lab))
+        for v in pieces:
+            if v is lab or v["page"] != lab["page"]: continue
+            hit = rx.search(v["text"])
+            if not hit: continue
+            dy, dx = lab["y"] - v["y"], v["x"] - lab["x"]
+            line = max(3.0, lab["size"] * 0.6)
+            if abs(dy) <= line and 0 < dx <= 560:                  # same line, to the right (any distance across the page)
+                score = dx * 0.5
+            elif line < dy <= 48 and -25 <= dx <= 160:            # just below, in the same column
+                score = dy * 2 + abs(dx) * 0.8
+            else:
+                continue
+            options.append((score, key, id(v), hit.group(), v))
+    result, used_keys, used_vals = {}, set(), set()
+    for score, key, vid, value, piece in sorted(options, key=lambda o: o[0]):
+        if key in used_keys or (vid, value) in used_vals: continue
+        result[key] = value
+        used_keys.add(key); used_vals.add((vid, value))
+    return result
+
+
+def parse_1098_pdf(data):
+    """Read a Form 1098 (official IRS form, filled in or printed, or a lender's year-end statement)."""
+    raw = match_labels(pdf_pieces(data))
+    out = {}
+    for key in ("interest", "principal", "refund", "mip", "points", "other", "taxes", "insurance"):
+        out[key] = to_num(raw[key]) if key in raw else None
+    for key in ("origination", "acquisition"):
+        d = parse_date(raw[key]) if key in raw else None
+        out[key] = d.isoformat() if d else None
+    out["year"] = int(raw["year"]) if "year" in raw else None
+    digits = re.sub(r"\D", "", raw.get("account", ""))
+    out["account_last4"] = digits[-4:] if len(digits) >= 4 else None
+    # Fill gaps from the plain-text reader (handles some layouts the position reader can't see)
+    text = pdf_text(data)
+    if text.strip():
+        backup = parse_1098(text)
+        for key in ("interest", "principal", "refund", "mip", "points", "other", "taxes", "insurance", "year"):
+            if out.get(key) is None and backup.get(key) is not None:
+                out[key] = backup[key]
+        if out["year"] is None:
+            years = [int(y) for y in re.findall(r"\b(20\d{2})\b", text) if 2000 < int(y) <= datetime.date.today().year]
+            out["year"] = max(set(years), key=years.count) if years else None
+    if out["taxes"] is None and out["other"] and re.search(r"tax", " ".join(p["text"] for p in pdf_pieces(data)
+                                                                       if re.search(r"other", p["text"], re.I)), re.I):
+        out["taxes"] = out["other"]
+    out["found"] = out["interest"] is not None
+    out["has_text"] = bool(text.strip()) or bool(raw)
+    return out

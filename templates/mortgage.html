@@ -50,7 +50,7 @@ Your year-end <b>Form 1098</b> then checks those totals and adds the property ta
 <section class="card"><h2>Imported Forms 1098</h2>
 {% if forms %}<ul class="list">{% for d in forms %}{% set x = data[d.id] %}
   <li><span class="dot in">{{ icon('check') }}</span>
-    <span class="main"><b>{{ d.year }} Form 1098</b><small>Interest {{ (x.box1 or 0)|money }}{% if x.taxes %} · Taxes {{ x.taxes|money }}{% endif %}{% if x.insurance %} · Insurance {{ x.insurance|money }}{% endif %}{% if not prop %} · {{ d.property }}{% endif %}</small></span>
+    <span class="main"><b>{{ d.year }} Form 1098</b><small>Interest {{ (x.box1 or 0)|money }}{% if x.box2 %} · Balance {{ x.box2|money }}{% endif %}{% if x.taxes %} · Taxes {{ x.taxes|money }}{% endif %}{% if x.origination %} · Opened {{ x.origination|nice }}{% endif %}{% if not prop %} · {{ d.property }}{% endif %}</small></span>
     {% if d.stored %}<a class="btn sm ghost" href="{{ url_for('mortgage_doc_file', doc_id=d.id) }}" target="_blank">PDF</a>{% endif %}
     <form method="post" action="{{ url_for('mortgage_doc_delete', doc_id=d.id) }}" data-confirm="Undo this 1098 import? The adjustments it added will be removed."><button class="btn sm del">Undo</button></form></li>
 {% endfor %}</ul>

@@ -1,5 +1,12 @@
 # What's new
 
+## Version 3.2 · November 26, 2026
+- **Form 1098 import rebuilt.** It now reads the official IRS form when your lender fills it in electronically
+  (the numbers are stored in form fields, which the old reader couldn't see), the printed version, and lenders'
+  own year-end statements ("Interest Paid", "Real Estate Taxes Disbursed"…).
+- The import also picks up the **outstanding principal (box 2)**, **origination date (box 3)** and the
+  **last 4 digits of the account number**, and keeps them with each year's 1098.
+
 ## Version 3.1 · November 26, 2026
 Expenses and monthly charges are separate again, just like the original app.
 - **Home has two separate sections:** **Expenses** (repairs, trips, supplies… with the add form and the year's list) and **Monthly charges**, the original 12-month table with **Mgmt fee**, **Due to agent**, **HOA** and **Note** columns.

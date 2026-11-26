@@ -11,7 +11,12 @@
 </form>
 <form method="post" action="{{ url_for('form1098_save') }}">
   {% if up %}<input type="hidden" name="stored" value="{{ up[0] }}"><input type="hidden" name="filename" value="{{ up[1] }}"><input type="hidden" name="sha" value="{{ up[2] }}">{% endif %}
-  <input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="box2" value="{{ p.principal or '' }}">
+  <input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="box6" value="{{ p.points or '' }}">
+  <section class="card"><h2>Loan details from the form</h2><div class="fields two">
+    <div><label for="box2">Outstanding principal (box 2)</label><input id="box2" name="box2" inputmode="decimal" value="{{ mv(p.principal) }}" placeholder="0.00"></div>
+    <div><label for="origination">Origination date (box 3)</label><input type="date" id="origination" name="origination" value="{{ p.origination or '' }}"></div>
+    <div><label for="account_last4">Account number <small>(last 4 digits are kept)</small></label><input id="account_last4" name="account_last4" value="{{ p.account_last4 or '' }}" inputmode="numeric" maxlength="20"></div>
+  </div></section>
   <section class="card fields two">
     <div><label for="lender">Lender</label><input id="lender" name="lender" value="{{ lender }}" placeholder="e.g. your mortgage company"></div>
     {{ property_select(pid) }}
@@ -27,7 +32,6 @@
     </div>
     {% if r.have is not none %}<p class="hint" data-have="{{ r.have }}">Already recorded for {{ year }}: <b>{{ r.have|money }}</b></p>{% endif %}
   </div>{% endfor %}
-  {% if p.principal %}<p class="hint">Box 2 · remaining principal: {{ p.principal|money }}</p>{% endif %}
   <p class="hint">Taxes and insurance added here are marked <b>paid from escrow</b>. They count on Schedule E but not again in cash flow,
     because the escrow part of each payment already did. If the form doesn't list insurance, find it on your annual escrow statement.</p>
   </section>
