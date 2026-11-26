@@ -26,7 +26,7 @@
     <div><span>Management fees</span><b>{{ tot.mgmt|money }}</b></div>
     <div><span>Due to agent</span><b>{{ tot.agent|money }}</b></div>
     <div><span>HOA</span><b>{{ tot.hoa|money }}</b></div>
-    {% if tot.mortgage %}<a href="{{ url_for('mortgage_page', year=year) }}"><span>Mortgage</span><b>{{ tot.mortgage|money }}</b></a>{% endif %}
+    {% if tot.mortgage %}<a href="{{ url_for('property_form', prop_id=pid) }}#f1098"><span>Mortgage interest &amp; principal</span><b>{{ tot.mortgage|money }}</b></a>{% endif %}
   </div>
   {% if tot.income %}<p class="hint" style="margin-bottom:0">Income {{ tot.income|money }} · Net <b class="{{ 'pos' if tot.net>=0 else 'neg' }}">{{ tot.net|money }}</b></p>{% endif %}
 </section>

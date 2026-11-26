@@ -1,5 +1,13 @@
 # What's new
 
+## Version 3.3 · November 26, 2026
+- **Loan information and Form 1098 now live on each property's page** (More → Properties → your property,
+  or **Rename / edit** on Home): lender, loan type, interest rate, original amount, origination date and account
+  (last 4 digits), plus a **Form 1098 by year** table with interest, balance, property taxes, mortgage insurance and the PDF.
+- Importing a 1098 fills in any blank loan details for you.
+- The separate **Mortgage** page and the **monthly mortgage statement import** were removed to keep things simple.
+  The yearly 1098 covers what you need for taxes. Entries from earlier statement imports are kept.
+
 ## Version 3.2 · November 26, 2026
 - **Form 1098 import rebuilt.** It now reads the official IRS form when your lender fills it in electronically
   (the numbers are stored in form fields, which the old reader couldn't see), the printed version, and lenders'

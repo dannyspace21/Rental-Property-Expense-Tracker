@@ -3,9 +3,8 @@
 {% block content %}
 <h1>More</h1>
 <div class="tiles" style="margin-bottom:14px">
-  <a class="tile" href="{{ url_for('properties') }}">{{ icon('building') }}<b>Properties</b><small class="muted">Add, rename or remove properties</small></a>
+  <a class="tile" href="{{ url_for('properties') }}">{{ icon('building') }}<b>Properties</b><small class="muted">Details, loan info &amp; Form 1098</small></a>
   <a class="tile" href="{{ url_for('bills') }}">{{ icon('repeat') }}<b>Recurring bills</b><small class="muted">Add a bill automatically every month</small></a>
-  <a class="tile" href="{{ url_for('mortgage_page') }}">{{ icon('file') }}<b>Mortgage</b><small class="muted">Import statements &amp; Form 1098</small></a>
   <a class="tile" href="{{ url_for('money_list') }}">{{ icon('search') }}<b>Search &amp; export</b><small class="muted">Find entries, download CSV</small></a>
   <a class="tile" href="{{ url_for('vendors') }}">{{ icon('users') }}<b>Vendors</b><small class="muted">Contractors &amp; 1099 check</small></a>
   <a class="tile" href="{{ url_for('upkeep') }}">{{ icon('tool') }}<b>Upkeep</b><small class="muted">Maintenance reminders</small></a>

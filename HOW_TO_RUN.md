@@ -72,15 +72,15 @@ Run these from inside the `Rental-Property-Expense-Tracker` folder:
 - **Tax time:** **Reports** has your Schedule E summary and a **PDF report** button.
 - **Light or dark mode:** tap the button at the top right, or choose on the **More** page.
 
-## Import your mortgage statements
-1. Sign in to your mortgage lender's website and find your statements (usually under **Statements** or **Documents**).
-   Download the monthly statement PDF.
-2. In the app: **More → Mortgage**. Choose the property and the PDF, then tap **Read statement**.
-3. Check the interest, principal and escrow amounts, then tap **Save payment**.
-4. Each January, do the same with your **Form 1098** (tap **Read 1098**). The app compares it with what you
-   recorded during the year and fills in any difference.
+## Add your loan and Form 1098
+1. Go to **More → Properties** and tap your property (or tap **Rename / edit** on Home).
+2. Under **Loan information**, fill in what you know (lender, loan type, interest rate...) and tap **Save loan information**.
+3. Each January, sign in to your mortgage lender's website and download your **Form 1098** PDF
+   (usually under **Statements**, **Documents** or **Tax documents**).
+4. Back on the property's page, under **Form 1098 by year**, choose the file and tap **Import 1098**.
+   Check the numbers and tap **Save**. The interest and property taxes go into your Schedule E report automatically.
 
-Made a mistake? Tap **Undo** next to the import on the Mortgage page.
+Made a mistake? Tap **Remove** next to that year.
 
 ## Load your old Excel data
 Go to **More**, scroll to **Import from Excel**, choose the property and your file, and tap Import.

@@ -2,16 +2,17 @@
 {% block title %}Property{% endblock %}
 {% block content %}
 {% macro moneyval(v) %}{{ '%.2f'|format(v) if v is not none else '' }}{% endmacro %}
-<div class="head"><h1>{{ 'Edit ' + p.name if p else 'Add a property' }}</h1></div>
+<div class="head"><h1>{{ p.name if p else 'Add a property' }}</h1></div>
+{% if p %}<nav class="chips" aria-label="Sections"><a href="#details">Details</a><a href="#loan">Loan</a><a href="#f1098">Form 1098</a></nav>{% endif %}
 <form method="post" action="{{ url_for('property_save') }}">
   {% if p %}<input type="hidden" name="id" value="{{ p.id }}">{% endif %}
   <input type="hidden" name="next" value="{{ next }}">
-  <section class="card fields two">
+  <section class="card" id="details"><h2>Property details</h2><div class="fields two">
     <div><label for="name">Name</label><input id="name" name="name" required value="{{ p.name if p else '' }}" placeholder="e.g. Maple St Duplex"></div>
     <div><label for="units">Units</label><input id="units" name="units" type="number" min="1" value="{{ p.units if p else 1 }}"></div>
     <div class="wide"><label for="address">Address</label><input id="address" name="address" value="{{ p.address or '' if p else '' }}"></div>
     <div class="wide"><label for="notes">Notes</label><textarea id="notes" name="notes" rows="2" placeholder="Lockbox code, parcel number, etc.">{{ p.notes or '' if p else '' }}</textarea></div>
-  </section>
+  </div></section>
   <section class="card"><details class="more" {{ 'open' if p and p.purchase_price }}><summary>Purchase details (optional)</summary>
     <p class="hint">Only used for depreciation and the investment numbers on Reports. Skip anything you don't know.</p>
     <div class="fields two">
@@ -24,8 +25,47 @@
       <div><label for="isd">First available for rent</label><input type="date" id="isd" name="in_service_date" value="{{ p.in_service_date or '' if p else '' }}"><div class="hint">Leave blank to use the purchase date.</div></div>
     </div>
   </details></section>
-  <div class="sticky-save row-btns"><button class="btn" style="flex:1">{{ icon('check') }}Save property</button><a class="btn alt" href="{{ next or url_for('home') }}">Cancel</a></div>
+  <div class="row-btns"><button class="btn">{{ icon('check') }}Save property details</button><a class="btn alt" href="{{ next or url_for('home') }}">{{ 'Back' if p else 'Cancel' }}</a></div>
 </form>
+
+{% if p %}
+{# ===== LOAN INFORMATION ===== #}
+<section class="card" id="loan" style="margin-top:14px"><h2>Loan information</h2>
+<p class="hint" style="margin-top:-6px">Optional. Importing a Form 1098 fills in the lender, origination date and account for you.</p>
+<form method="post" action="{{ url_for('loan_save', prop_id=p.id) }}" class="fields two">
+  <div><label for="l-lender">Lender</label><input id="l-lender" name="lender" value="{{ loan.lender or '' if loan else '' }}" placeholder="e.g. your mortgage company"></div>
+  <div><label for="l-type">Loan type</label><input id="l-type" name="loan_type" list="loan-types" value="{{ loan.loan_type or '' if loan else '' }}" placeholder="e.g. 30-year fixed">
+    <datalist id="loan-types">{% for t in ['30-year fixed','15-year fixed','20-year fixed','Adjustable (ARM)','FHA','VA','Interest-only'] %}<option value="{{ t }}">{% endfor %}</datalist></div>
+  <div><label for="l-rate">Interest rate (%)</label><input id="l-rate" name="rate" inputmode="decimal" value="{{ '%g'|format(loan.rate) if loan and loan.rate is not none else '' }}" placeholder="e.g. 5.875"></div>
+  <div><label for="l-amt">Original loan amount</label><input id="l-amt" name="original_amount" inputmode="decimal" value="{{ moneyval(loan.original_amount) if loan }}" placeholder="0.00"></div>
+  <div><label for="l-orig">Origination date</label><input type="date" id="l-orig" name="origination_date" value="{{ loan.origination_date or '' if loan else '' }}"></div>
+  <div><label for="l-acct">Account number <small>(last 4 digits)</small></label><input id="l-acct" name="account_last4" inputmode="numeric" maxlength="20" value="{{ loan.account_last4 or '' if loan else '' }}"></div>
+  <div class="wide"><label for="l-notes">Notes</label><input id="l-notes" name="notes" value="{{ loan.notes or '' if loan else '' }}" placeholder="e.g. refinanced in 2024"></div>
+  <div class="wide"><button class="btn">{{ icon('check') }}Save loan information</button></div>
+</form></section>
+
+{# ===== FORM 1098, ONE PER YEAR ===== #}
+<section class="card" id="f1098"><h2>Form 1098 by year</h2>
+<p class="hint" style="margin-top:-6px">Your lender sends Form 1098 by January 31. Download the PDF from their website and import it here.
+  The interest and property taxes go into your Schedule E report automatically.</p>
+<form method="post" action="{{ url_for('form1098_review') }}" enctype="multipart/form-data" class="row-btns">
+  <input type="hidden" name="property_id" value="{{ p.id }}">
+  <input type="file" name="file" accept="application/pdf,.pdf" required aria-label="Form 1098 PDF" style="flex:1;min-width:220px">
+  <button class="btn">{{ icon('upload') }}Import 1098</button>
+  <a class="btn alt" href="{{ url_for('form1098_review', property_id=p.id) }}">Enter by hand</a>
+</form>
+{% if forms %}<div class="scroll" style="margin-top:12px"><table>
+  <thead><tr><th>Year</th><th class="r">Interest paid</th><th class="r">Balance (start of year)</th><th class="r">Property taxes</th><th class="r">Mortgage insurance</th><th></th></tr></thead>
+  <tbody>{% for d in forms %}{% set x = data[d.id] %}<tr>
+    <td><b>{{ d.year }}</b></td><td class="r">{{ (x.box1 or 0)|money }}</td><td class="r">{{ x.box2|money if x.box2 else '—' }}</td>
+    <td class="r">{{ x.taxes|money if x.taxes else '—' }}</td><td class="r">{{ x.box5|money if x.box5 else '—' }}</td>
+    <td class="r nowrap">{% if d.stored %}<a class="btn sm ghost" href="{{ url_for('mortgage_doc_file', doc_id=d.id) }}" target="_blank">PDF</a>{% endif %}
+      <form method="post" action="{{ url_for('mortgage_doc_delete', doc_id=d.id) }}" data-confirm="Remove the {{ d.year }} Form 1098? The adjustments it added to your {{ d.year }} totals are removed too." style="display:inline">
+        <button class="btn sm del">Remove</button></form></td></tr>{% endfor %}</tbody>
+</table></div>
+{% else %}<p class="empty" style="padding:12px 0 0">No Form 1098 imported yet.</p>{% endif %}
+</section>
+{% endif %}
 {% if p and count > 1 %}
 <form method="post" action="{{ url_for('property_delete', prop_id=p.id) }}" data-confirm="Delete {{ p.name }}? Its leases, bills and reminders are deleted too.">
   <button class="btn del block" {{ 'disabled' if used }}>Delete property</button>
