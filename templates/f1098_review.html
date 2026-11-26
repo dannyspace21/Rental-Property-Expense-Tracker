@@ -1,49 +1,53 @@
 {% extends "base.html" %}{% from "macros.html" import icon, property_select with context %}
 {% block title %}Form 1098{% endblock %}
 {% block content %}
-{% macro mv(v) %}{{ '%.2f'|format(v) if v is number else '' }}{% endmacro %}
-<div class="head"><h1>Form 1098 check · {{ year }}</h1></div>
+{% macro mv(x) %}{{ '%.2f'|format(x) if x is number else '' }}{% endmacro %}
+<div class="head"><h1>Form 1098 · {{ year }}</h1></div>
 {% for w in warn %}<div class="note" style="background:var(--warn-soft);color:var(--warn)">{{ icon('alert') }} {{ w }}</div>{% endfor %}
-{% if p.found %}<div class="flash">{{ icon('check') }} Read your 1098. Check the numbers, then save.</div>{% endif %}
-<form method="get" action="{{ url_for('form1098_review') }}" class="card flat row-btns" style="padding:12px">
-  <label for="yr" style="margin:0">Tax year</label><input id="yr" name="year" type="number" value="{{ year }}" style="max-width:120px">
-  <input type="hidden" name="property_id" value="{{ pid }}">{% if not up %}<button class="btn sm ghost">Change</button>{% else %}<span class="hint">from the form</span>{% endif %}
-</form>
+{% if up and v.box1 is number %}<div class="flash">{{ icon('check') }} Read your Form 1098. Check each box against the form, then save.</div>{% endif %}
+
 <form method="post" action="{{ url_for('form1098_save') }}">
   {% if up %}<input type="hidden" name="stored" value="{{ up[0] }}"><input type="hidden" name="filename" value="{{ up[1] }}"><input type="hidden" name="sha" value="{{ up[2] }}">{% endif %}
-  <input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="box6" value="{{ p.points or '' }}">
-  <section class="card"><h2>Loan details from the form</h2><div class="fields two">
-    <div><label for="box2">Outstanding principal (box 2)</label><input id="box2" name="box2" inputmode="decimal" value="{{ mv(p.principal) }}" placeholder="0.00"></div>
-    <div><label for="origination">Origination date (box 3)</label><input type="date" id="origination" name="origination" value="{{ p.origination or '' }}"></div>
-    <div><label for="account_last4">Account number <small>(last 4 digits are kept)</small></label><input id="account_last4" name="account_last4" value="{{ p.account_last4 or '' }}" inputmode="numeric" maxlength="20"></div>
-  </div></section>
+
+  {# Who and when, at the top #}
   <section class="card fields two">
-    <div><label for="lender">Lender</label><input id="lender" name="lender" value="{{ lender }}" placeholder="e.g. your mortgage company"></div>
+    <div><label for="year">Tax year</label><input id="year" name="year" type="number" min="2000" max="2100" value="{{ year }}" required></div>
+    <div><label for="lender">Lender</label><input id="lender" name="lender" value="{{ v.lender or '' }}" placeholder="e.g. your mortgage company"></div>
     {{ property_select(pid) }}
+    <div><label for="acct">Account number <small>(last 4 digits are kept)</small></label><input id="acct" name="account_last4" inputmode="numeric" maxlength="20" value="{{ v.account_last4 or '' }}"></div>
   </section>
-  <section class="card"><h2>Compare &amp; adjust</h2>
-  <p class="hint" style="margin-top:-6px">Type the amount from the form in the first box. The app compares it with what's already recorded and fills in the difference to add (you can change it).</p>
-  {% for r in rows %}
-  <div class="card flat" style="margin:10px 0 0;padding:12px" data-row="{{ r.key }}">
-    <h3>{{ r.label }}</h3>
-    <div class="fields two" style="grid-template-columns:1fr 1fr">
-      <div><label>On the form</label><input name="{{ {'interest':'box1','mip':'box5'}.get(r.key, r.key) }}" data-src inputmode="decimal" value="{{ mv(r.src) }}" placeholder="0.00"></div>
-      <div><label>Add to the app</label><input name="add_{{ r.key }}" data-add inputmode="decimal" value="{{ mv(r.add) }}" placeholder="0.00"></div>
+
+  {# The boxes, in the same order as the form #}
+  <section class="card"><h2>Boxes on the form</h2>
+  <div class="boxes">
+  {% for name, num, label, kind in boxes %}
+    <div class="box-row">
+      <span class="box-num">{{ num }}</span>
+      <label for="{{ name }}" class="box-label">{{ label }}</label>
+      <div class="box-input">
+      {% if kind in ('money', 'other') %}
+        {% if kind == 'other' %}<input name="box10_text" aria-label="What box 10 is for" value="{{ v.box10_text or '' }}" placeholder="e.g. Real estate taxes" style="margin-bottom:6px">{% endif %}
+        <input id="{{ name }}" name="{{ name }}" inputmode="decimal" value="{{ mv(v[name]) }}" placeholder="0.00">
+      {% elif kind == 'date' %}<input type="date" id="{{ name }}" name="{{ name }}" value="{{ v[name] or '' }}">
+      {% elif kind == 'check' %}<label class="check" style="margin:0"><input type="checkbox" id="{{ name }}" name="{{ name }}" value="1" {{ 'checked' if v[name] }}> Checked</label>
+      {% elif kind == 'count' %}<input id="{{ name }}" name="{{ name }}" inputmode="numeric" value="{{ v[name] if v[name] is not none else '' }}" placeholder="1">
+      {% else %}<input id="{{ name }}" name="{{ name }}" value="{{ v[name] or '' }}">{% endif %}
+      </div>
     </div>
-    {% if r.have is not none %}<p class="hint" data-have="{{ r.have }}">Already recorded for {{ year }}: <b>{{ r.have|money }}</b></p>{% endif %}
-  </div>{% endfor %}
-  <p class="hint">Taxes and insurance added here are marked <b>paid from escrow</b>. They count on Schedule E but not again in cash flow,
-    because the escrow part of each payment already did. If the form doesn't list insurance, find it on your annual escrow statement.</p>
+  {% endfor %}
+  </div></section>
+
+  {# Escrow amounts used for Schedule E #}
+  <section class="card"><h2>Paid from escrow</h2>
+    <p class="hint" style="margin-top:-6px">Property taxes and homeowners insurance your lender paid for you this year. Box 10 or the escrow summary
+      on the form usually shows them; leave blank if your form doesn't list them.</p>
+    <div class="fields two">
+      <div><label for="taxes">Property taxes</label><input id="taxes" name="taxes" inputmode="decimal" value="{{ mv(v.taxes) }}" placeholder="0.00"></div>
+      <div><label for="insurance">Homeowners insurance</label><input id="insurance" name="insurance" inputmode="decimal" value="{{ mv(v.insurance) }}" placeholder="0.00"></div>
+    </div>
   </section>
-  <div class="sticky-save row-btns"><button class="btn" style="flex:1">{{ icon('check') }}Save</button><a class="btn alt" href="{{ back }}">Cancel</a></div>
+
+  <p class="hint">Saving keeps these numbers with the property and updates your {{ year }} Schedule E to match the form.</p>
+  <div class="row-btns"><button class="btn" style="flex:1">{{ icon('check') }}Save Form 1098</button><a class="btn alt" href="{{ back }}">Cancel</a></div>
 </form>
-<script>
-document.querySelectorAll("[data-row]").forEach(row => {
-  const src = row.querySelector("[data-src]"), add = row.querySelector("[data-add]"), have = row.querySelector("[data-have]");
-  let touched = false; add.addEventListener("input", () => touched = true);
-  src.addEventListener("input", () => { if (touched) return;
-    const v = parseFloat(src.value.replace(/[$,]/g, "")); const h = have ? parseFloat(have.dataset.have) : 0;
-    add.value = isNaN(v) ? "" : (v - h).toFixed(2); });
-});
-</script>
 {% endblock %}

@@ -740,74 +740,105 @@ def previous_1098(pid, year):
     row = db().execute("SELECT * FROM mortgage_docs WHERE kind='1098' AND property_id=? AND year=?", (pid, year)).fetchone()
     return row, (set(json.loads(row["data"] or "{}").get("tx", [])) if row else set())
 
+# The boxes of Form 1098, in order: (form field, box label, kind of value)
+BOXES_1098 = [("box1", "1", "Mortgage interest received from payer(s)/borrower(s)", "money"),
+              ("box2", "2", "Outstanding mortgage principal", "money"),
+              ("box3", "3", "Mortgage origination date", "date"),
+              ("box4", "4", "Refund of overpaid interest", "money"),
+              ("box5", "5", "Mortgage insurance premiums", "money"),
+              ("box6", "6", "Points paid on purchase of principal residence", "money"),
+              ("box7", "7", "Address of property is the same as the borrower's address", "check"),
+              ("box8", "8", "Address or description of property securing mortgage", "text"),
+              ("box9", "9", "Number of properties securing the mortgage", "count"),
+              ("box10", "10", "Other", "other"),
+              ("box11", "11", "Mortgage acquisition date", "date")]
+FROM_PDF = {"box1": "interest", "box2": "principal", "box3": "origination", "box4": "refund", "box5": "mip", "box6": "points",
+            "box7": "address_same", "box8": "property_address", "box9": "properties", "box10": "other",
+            "box10_text": "other_text", "box11": "acquisition"}
+
 @app.route("/mortgage/1098", methods=["GET", "POST"])
 def form1098_review():
-    """Upload a Form 1098 (POST) or type it in (GET); compare it with what's recorded."""
+    """Upload a Form 1098 (POST), edit a saved one (?doc=id) or type one in (GET), then check it before saving."""
     pid = request.values.get("property_id", type=int) or default_pid()
-    p, up, warn = {}, None, []
+    v, up, warn = {}, None, []
     if request.method == "POST":
         up = take_upload()
         if up is False: return redirect(property_url(pid))
         if up:
             with open(os.path.join(store.UPLOAD_DIR, up[0]), "rb") as fh:
                 p = mortgage.parse_1098_pdf(fh.read())               # reads form fields and page layout
+            v = {box: p.get(key) for box, key in FROM_PDF.items()}
+            v.update({k: p.get(k) for k in ("taxes", "insurance", "year", "lender", "account_last4")})
             if not p["has_text"]:
-                warn.append("This PDF has no readable text (it may be a scan or photo). Please type the boxes in below.")
+                warn.append("This PDF has no readable text (it may be a scan or photo). Please type the boxes in from the form.")
             elif not p["found"]:
-                warn.append("We couldn't find box 1 (mortgage interest) in this PDF. Please type the amounts in from the form.")
-    year = request.values.get("year", type=int) or p.get("year") or (today().year - 1)
-    prev, skip = previous_1098(pid, year)
-    if prev: warn.append(f"You already imported a 1098 for {year}. Saving replaces the entries it added.")
-    rows = []
-    for key, label, cat, src in (("interest", "Mortgage interest (box 1)", "Mortgage interest", p.get("interest")),
-                                 ("taxes", "Property taxes paid from escrow", "Property taxes", p.get("taxes")),
-                                 ("insurance", "Insurance paid from escrow", "Insurance", p.get("insurance"))):
-        have = recorded(pid, year, cat, skip)
-        rows.append({"key": key, "label": label, "src": src, "have": have,
-                     "add": round(src - have, 2) if src is not None else None})
-    rows.append({"key": "mip", "label": "Mortgage insurance premiums (box 5)", "src": p.get("mip"), "have": None,
-                 "add": p.get("mip") or None})
-    return render_template("f1098_review.html", p=p, up=up, warn=warn, pid=pid, year=year, rows=rows,
-                           lender=last_lender(pid), back=property_url(pid))
+                warn.append("We couldn't find box 1 (mortgage interest) in this PDF. Please type the boxes in from the form.")
+    elif request.args.get("doc", type=int):                      # editing a saved 1098
+        d = db().execute("SELECT * FROM mortgage_docs WHERE id=? AND kind='1098'", (request.args.get("doc", type=int),)).fetchone()
+        if not d: abort(404)
+        pid, v = d["property_id"], json.loads(d["data"] or "{}")
+        v["year"] = d["year"]
+        v.setdefault("box3", v.get("origination"))
+    year = request.values.get("year", type=int) or v.get("year") or (today().year - 1)
+    prev, _ = previous_1098(pid, year)
+    if prev and not request.args.get("doc"):
+        warn.append(f"You already have a Form 1098 for {year}. Saving replaces it.")
+    v["lender"] = v.get("lender") or last_lender(pid)
+    return render_template("f1098_review.html", v=v, up=up, warn=warn, pid=pid, year=year, boxes=BOXES_1098,
+                           back=property_url(pid), editing=bool(request.args.get("doc")))
 
 @app.route("/mortgage/1098/save", methods=["POST"])
 def form1098_save():
+    """Save a Form 1098 and make that year's Schedule E match it (interest, escrow taxes/insurance, mortgage insurance)."""
     f = request.form
     pid = f.get("property_id", type=int) or default_pid()
     year = f.get("year", type=int) or today().year - 1
     prev, skip = previous_1098(pid, year)
-    if prev:                                             # replace what an earlier 1098 import for this year added
+    stored, filename, sha = keep_upload(f.get("stored")), clean("filename"), f.get("sha") or None
+    if prev:                                             # replace the earlier 1098 for this year and what it added
         db().execute(f"DELETE FROM transactions WHERE id IN ({','.join('?' * len(skip)) or 'NULL'})", tuple(skip))
         db().execute("DELETE FROM mortgage_docs WHERE id=?", (prev["id"],))
-        if prev["stored"]:
+        if stored and prev["stored"]:
             try: os.remove(os.path.join(store.RECEIPT_DIR, prev["stored"]))
             except OSError: pass
-    date, lender = f"{year}-12-31", clean("lender")
-    vendor = vendor_id_for(lender) if lender else None
+        elif not stored:                                 # editing without a new file: keep the original PDF
+            stored, filename, sha = prev["stored"], prev["filename"], prev["sha"]
+    data = {}
+    for box, _, _, kind in BOXES_1098:
+        raw = f.get(box)
+        if kind in ("money", "other"): data[box] = num_or_none(raw)
+        elif kind == "date": data[box] = valid_date(raw)
+        elif kind == "check": data[box] = bool(raw)
+        elif kind == "count": data[box] = int(raw) if (raw or "").strip().isdigit() else None
+        else: data[box] = (raw or "").strip() or None
+    data["box10_text"] = clean("box10_text") or None
+    data.update({"taxes": num_or_none(f.get("taxes")), "insurance": num_or_none(f.get("insurance")),
+                 "lender": clean("lender") or None, "account_last4": re.sub(r"\D", "", clean("account_last4"))[-4:] or None,
+                 "origination": data["box3"]})
+    # Make the year's Schedule E match the form: add the difference to what's already recorded
+    date, vendor = f"{year}-12-31", vendor_id_for(data["lender"]) if data["lender"] else None
     ids = []
-    for key, cat, desc, escrow in (("interest", "Mortgage interest", "Mortgage interest - Form 1098 adjustment", 0),
-                                   ("taxes", "Property taxes", "Property taxes paid from escrow (Form 1098)", 1),
-                                   ("insurance", "Insurance", "Insurance paid from escrow", 1),
-                                   ("mip", "Insurance", "Mortgage insurance premiums (Form 1098 box 5)", 1)):
-        amt = num(f.get("add_" + key))
-        if not amt: continue
+    for amount, have_cat, cat, desc, escrow in (
+            (data["box1"], "Mortgage interest", "Mortgage interest", "Mortgage interest (Form 1098 box 1)", 0),
+            (data["taxes"], "Property taxes", "Property taxes", "Property taxes paid from escrow (Form 1098)", 1),
+            (data["insurance"], "Insurance", "Insurance", "Insurance paid from escrow (Form 1098)", 1),
+            (data["box5"], None, "Insurance", "Mortgage insurance premiums (Form 1098 box 5)", 1)):
+        if amount is None: continue
+        diff = round(amount - (recorded(pid, year, have_cat, skip) if have_cat else 0), 2)
+        if abs(diff) < 0.005: continue
         ids.append(db().execute("INSERT INTO transactions (property_id,kind,date,description,category,amount,vendor_id,notes,from_escrow)"
-                                " VALUES (?,?,?,?,?,?,?,?,?)", (pid, "expense", date, desc, cat, amt, vendor,
+                                " VALUES (?,?,?,?,?,?,?,?,?)", (pid, "expense", date, desc, cat, diff, vendor,
                                                                 f"Form 1098 for {year}", escrow)).lastrowid)
-    stored = keep_upload(f.get("stored"))
-    if stored and ids:
-        db().execute("INSERT INTO attachments (transaction_id, filename, stored) VALUES (?,?,?)", (ids[0], clean("filename"), stored))
-    box = {k: num_or_none(f.get(k)) for k in ("box1", "box2", "box5", "box6", "taxes", "insurance")}
-    box.update({"origination": valid_date(f.get("origination")), "account_last4": re.sub(r"\D", "", clean("account_last4"))[-4:] or None})
+    if stored and ids and not prev:
+        db().execute("INSERT INTO attachments (transaction_id, filename, stored) VALUES (?,?,?)", (ids[0], filename, stored))
     db().execute("INSERT OR IGNORE INTO loans (property_id) VALUES (?)", (pid,))    # fill blank loan details from the form
     db().execute("UPDATE loans SET lender=COALESCE(NULLIF(lender,''),?), origination_date=COALESCE(NULLIF(origination_date,''),?),"
                  " account_last4=COALESCE(NULLIF(account_last4,''),?) WHERE property_id=?",
-                 (lender or None, box["origination"], box["account_last4"], pid))
+                 (data["lender"], data["box3"], data["account_last4"], pid))
     db().execute("INSERT INTO mortgage_docs (property_id,kind,doc_date,year,stored,filename,sha,data) VALUES (?,?,?,?,?,?,?,?)",
-                 (pid, "1098", date, year, stored, clean("filename"), f.get("sha") or None, json.dumps({"tx": ids, **box})))
+                 (pid, "1098", date, year, stored, filename, sha, json.dumps({"tx": ids, **data})))
     db().commit()
-    flash(f"Form 1098 for {year} saved. Your Schedule E for {year} now matches it." if ids else
-          f"Form 1098 for {year} saved. Everything already matched, so nothing needed adjusting.")
+    flash(f"Form 1098 for {year} saved. Your {year} Schedule E now matches it.")
     return redirect(property_url(pid))
 
 @app.route("/mortgage/doc/<int:doc_id>")
@@ -833,7 +864,7 @@ def mortgage_doc_delete(doc_id):
 
 
 # ---------- ABOUT & WHAT'S NEW ----------
-APP_VERSION = "3.3"
+APP_VERSION = "3.4"
 
 def simple_markdown(text):
     """Turn the few Markdown bits used in CHANGELOG.md into HTML (headings, bullets, bold)."""
