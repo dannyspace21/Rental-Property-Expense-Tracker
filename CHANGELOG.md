@@ -1,5 +1,13 @@
 # What's new
 
+## Version 3.4 · November 26, 2026
+- **Form 1098 import reads every box.** It now handles lender PDFs that draw text word by word or letter by letter,
+  values printed in the corner of each box, rotated pages and an instructions page, and finds the **lender** from the form.
+- **Clearer review screen:** tax year, lender, property and account at the top, then **boxes 1 through 11 in the form's
+  order** (box 7 checkbox, box 8 address, box 9 count, box 10 description and amount), then the taxes and insurance paid from escrow.
+  The "Add to the app" column and "Compare & adjust" section are gone; saving updates your Schedule E to match the form.
+- **Edit** a saved 1098 from the property's page.
+
 ## Version 3.3 · November 26, 2026
 - **Loan information and Form 1098 now live on each property's page** (More → Properties → your property,
   or **Rename / edit** on Home): lender, loan type, interest rate, original amount, origination date and account

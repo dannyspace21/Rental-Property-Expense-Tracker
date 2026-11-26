@@ -78,9 +78,10 @@ Run these from inside the `Rental-Property-Expense-Tracker` folder:
 3. Each January, sign in to your mortgage lender's website and download your **Form 1098** PDF
    (usually under **Statements**, **Documents** or **Tax documents**).
 4. Back on the property's page, under **Form 1098 by year**, choose the file and tap **Import 1098**.
-   Check the numbers and tap **Save**. The interest and property taxes go into your Schedule E report automatically.
+   Check each box (they're listed 1 through 11, like the form) and tap **Save Form 1098**.
+   The interest and property taxes go into your Schedule E report automatically.
 
-Made a mistake? Tap **Remove** next to that year.
+Made a mistake? Tap **Edit** next to that year to fix a box, or **Remove** to undo it.
 
 ## Load your old Excel data
 Go to **More**, scroll to **Import from Excel**, choose the property and your file, and tap Import.

@@ -68,27 +68,30 @@ of the account number. Fill it in once; importing a Form 1098 fills in the lende
 **Form 1098 by year**: your lender sends Form 1098 by January 31.
 1. Download the PDF from your lender's website (usually under **Statements** or **Documents** or **Tax documents**).
 2. On the property's page, choose the file and tap **Import 1098** (or **Enter by hand** to type the boxes in).
-3. Check the numbers on the review screen and tap **Save**.
+3. The review screen shows the **tax year, lender, property and account number** at the top, then **every box,
+   1 through 11, in the same order as the form**, then the property taxes and insurance paid from escrow.
+   Check them against your form and tap **Save Form 1098**.
 
 Each year gets a row: **interest paid (box 1)**, **balance at the start of the year (box 2)**, **property taxes**,
-**mortgage insurance (box 5)**, a link to the PDF, and **Remove** to undo it.
+**mortgage insurance (box 5)**, **Edit** to change it later, a link to the PDF, and **Remove** to undo it.
 
 **How it affects your reports**
 
 | From Form 1098 | What happens |
 |---|---|
-| Box 1: mortgage interest | Compared with any interest already recorded for that year; the difference is added, so your Schedule E matches the form |
+| Box 1: mortgage interest | Your Schedule E mortgage interest for that year is set to match the form |
 | Property taxes paid from escrow | Added as *Property taxes*, marked **paid from escrow** |
 | Insurance paid from escrow | Added as *Insurance*, marked **paid from escrow** (if the 1098 doesn't list it, take it from your annual escrow statement) |
 | Box 5: mortgage insurance premiums | Added as *Insurance*, marked **paid from escrow** |
-| Box 2 balance, box 3 origination date, account number | Saved with that year's 1098 and shown on the property's page |
+| Boxes 2–4 and 6–11, lender, account number | Saved with that year's 1098; box 2 and box 3 also show on the property's page |
 
 **Why "paid from escrow"?** Taxes and insurance your lender pays out of escrow are deductible, so they count on Schedule E.
 They aren't counted again in your cash flow, because that money already left your account as part of each mortgage payment.
 To include the mortgage payment itself in your cash flow, add it once under **More → Recurring bills**.
 
 **Good to know**
-- Works with the official IRS form (filled in electronically or printed) and with lenders' own year-end statements.
+- Works with the official IRS form (filled in electronically or printed) and with lenders' own versions of it,
+  including PDFs whose text is drawn word by word or letter by letter, rotated pages and an instructions page.
   The reader finds each box by its label and position, not one exact layout. If something comes out wrong, fix it on the review screen.
 - A photo or scan has no readable text, so you'd type the numbers in with **Enter by hand**.
 - Importing the same file twice is blocked. Importing a second 1098 for the same year replaces the first one.
