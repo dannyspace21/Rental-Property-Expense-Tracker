@@ -1,7 +1,8 @@
-{% extends "base.html" %}{% from "macros.html" import icon, property_select with context %}
-{% block title %}Recurring bills{% endblock %}
+{% extends "base.html" %}{% from "macros.html" import icon, property_select, property_chips with context %}
+{% block title %}Monthly bills{% endblock %}
 {% block content %}
-<div class="head"><h1>Recurring bills</h1></div>
+<div class="head"><h1>Monthly bills</h1></div>
+{{ property_chips() }}
 <p class="note">Set up bills that repeat, like HOA dues, the management fee, insurance or the mortgage. Each time one comes due it's
 added to <b>Money</b> automatically. (For the mortgage, importing your monthly statements on the <a href="{{ url_for('mortgage_page') }}">Mortgage</a> page is more accurate.) If a bill was different one month, just tap that payment in Money and change it.</p>
 

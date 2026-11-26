@@ -1,65 +1,54 @@
 # Rental Property Tracker
 
-A simple, private web app for landlords. Track income and expenses for one or many rental properties,
-see who has paid rent, get maintenance reminders, and print a tax-ready Schedule E summary at year end.
+A simple, private web app for tracking your rental property expenses. Pick a property, add an expense,
+see your totals. It also tracks income and rent, and prints a tax-ready Schedule E summary at year end.
 
-It runs on your own computer, a Raspberry Pi or a NAS, either with Docker or installed directly on Linux. Your data stays in the `data/` folder and is
-never sent anywhere. It's built to be used from your phone: open it in your phone's browser on your home Wi-Fi.
+It runs on your own computer, a Raspberry Pi or a NAS, either with Docker or installed directly on Linux.
+Your data stays in the `data/` folder and is never sent anywhere. It works great on a phone: open it in your
+phone's browser on your home Wi-Fi.
 
 <p>
 <img src="docs/screenshots/phone-home.png" width="230" alt="Home screen on a phone">
-<img src="docs/screenshots/phone-add.png" width="230" alt="Adding an expense on a phone">
-<img src="docs/screenshots/phone-rent.png" width="230" alt="Rent status on a phone">
+<img src="docs/screenshots/phone-rent.png" width="230" alt="Rent page on a phone">
+<img src="docs/screenshots/phone-home-dark.png" width="230" alt="Home screen in dark mode">
 </p>
 
-## Features
+## How it's organized
+Four tabs: **Home · Rent · Reports · More**.
 
-**Money**
-- **Income and expenses** for every property, with net cash flow per month and per year.
-- **Multiple properties.** Switch between them at the top of the page, or pick *All properties* for combined totals.
-- **Tax-friendly categories** that match the lines of IRS Schedule E, with a short hint under each one.
-- **Receipts.** Attach a photo (straight from your phone camera) or a PDF to any expense.
-- **Recurring bills** such as HOA, the management fee, insurance, property taxes and the mortgage. Set them up
-  once and they're added automatically each time they come due.
-- **Search and filter** by text, year, category, vendor, date range or amount, then **export to CSV**.
+**Home: your expenses, the way the original app worked**
+- **Pick your property** at the top. **+ Add property** and **Rename / edit** are right there.
+- **Pick a year**, see the year's **expenses, income and net** at a glance.
+- **Add an expense** (or income) right on the page: date, what it was, category, amount. Notes, a receipt photo
+  and who you paid are tucked under *Notes, receipt, paid to…*.
+- **That year's entries** below. Tap one to edit or delete it.
+- **Month by month table**, like the original monthly charges: one column per monthly bill (management fee, HOA…),
+  plus your mortgage and rent received.
 
-**Mortgage (any US lender)**
-- **Import your monthly mortgage statement (PDF).** The app reads the *Past Payments Breakdown* that every
-  US mortgage statement is required to include, and splits the payment into **interest** (tax deductible),
-  **principal** and **escrow**. You check the numbers on a review screen before anything is saved.
-- **Import your year-end Form 1098 (PDF).** The app reads box 1 (mortgage interest), box 5 (mortgage insurance)
-  and the property taxes and insurance your lender paid from escrow. It compares them with what's recorded and
-  fills in the difference, so your Schedule E matches what your lender reported to the IRS.
-- Duplicate files are detected, every import can be undone, and you can **type the numbers in** if a PDF can't be read.
-
-**Rent & tenants**
-- **Leases** with tenant contact info, rent, deposit, due day and grace period.
-- **This month at a glance**: paid, due, late or partial. Late rent shows up on the Home screen.
-  One tap on **Mark paid** records the payment.
-- **Rent roll**: a 12-month grid per tenant. Tap any late month to record the payment.
-- A warning when a **lease ends within 60 days**.
-
-**Upkeep**
-- **Maintenance reminders** that repeat (HVAC filter every 3 months, smoke detectors every 6...),
-  with one-tap suggestions for common landlord tasks.
-- Tap **Done** to log it, optionally with its cost and a receipt. The next due date is set for you.
-
-**Vendors**
-- A list of contractors with tap-to-call, what you paid each one, and a **1099 flag** for anyone paid $600 or more for services in a year.
+**Rent**
+- Each lease shows a **box for every month**. Tap a month to mark it **paid**, past months too, and tap again to undo.
+  Late months show as *Unpaid*; partial payments show the amount received.
+- Leases hold tenant contact info, rent, deposit and due day.
 
 **Reports**
-- **Schedule E summary** per property and year (PDF or CSV).
-- **Depreciation** of the building and of capital improvements (roof, HVAC, appliances), calculated with the straight-line method.
-- **Investment numbers**: net operating income, cap rate, cash-on-cash return, expense ratio and monthly cash flow.
-- **Year-over-year** comparison and spending by category.
-- **Year-end PDF report** with everything above plus every transaction.
+- **Schedule E summary** per property and year (PDF or CSV), using categories that match the IRS form.
+- Month-by-month chart, **depreciation** (building and big upgrades like a roof), **investment numbers**
+  (net operating income, cap rate, cash-on-cash), year-over-year comparison, spending by category and a 1099 check.
+- **Year-end PDF report** with every entry.
+
+**More**
+- **Properties**: add, rename or remove.
+- **Monthly bills**: set up HOA, management fee, insurance and so on once; they're added every month automatically.
+- **Mortgage**: import your lender's monthly statement and Form 1098 PDFs (details below).
+- **Search & export**: find any entry and download a CSV.
+- **Vendors** (with tap-to-call and a 1099 check) and **Upkeep** (maintenance reminders).
+- **Appearance**: Automatic, Light or Dark mode (also the button at the top right).
+- **Backup** download, **Excel import**, and **About & what's new** (release notes).
 
 **Peace of mind**
-- **Automatic daily backups** in `data/backups` (the last 14 days are kept).
-- **One-click backup** download (database + receipts as a .zip).
-- **Excel import** from the original spreadsheet layout.
+- **Automatic daily backups** in `data/backups` (the last 14 days are kept) and a one-click download of everything.
 - Upgrades happen automatically on start; your data is copied to `data/backup-before-upgrade.db` first.
-- Light and dark mode, and works on any screen size. No login: it's meant for your private home network.
+- No login: it's meant for your private home network.
 
 <img src="docs/screenshots/desktop-home.png" alt="Home screen on a desktop">
 
@@ -175,7 +164,7 @@ The old tables are kept in the database (renamed `legacy_expenses` and `legacy_m
 Each sheet is named by year (e.g. `2025`). Expenses are in columns A (description), B (date), C (cost),
 starting at row 3 and ending at a row labeled "Total". The 12 monthly rows are in rows 3-14 with
 management fee, agent and HOA in columns F, G, H and an optional note in column I.
-Importing replaces the typed-in expenses for that property and year. Income, rent and recurring bills are kept,
+Importing replaces the typed-in expenses for that property and year. Income, rent and monthly bills are kept,
 and a safety copy is saved first as `data/backup-before-import.db`.
 
 <img src="docs/screenshots/desktop-reports.png" alt="Reports page with the Schedule E summary">
@@ -191,6 +180,7 @@ Plain Python (Flask + SQLite), with no build step and no JavaScript framework.
 | `mortgage.py` | Reads mortgage statements and Form 1098 PDFs (with `pypdf`) |
 | `install.sh` | Direct Linux install: Python environment + systemd service |
 | `templates/` | One HTML file per page (`base.html` holds the header and the phone tab bar) |
+| `CHANGELOG.md` | Release notes, shown in the app under **More → About & what's new** |
 | `static/` | `style.css`, a small `app.js` and the app icons |
 
 Run without Docker for development: `pip install -r requirements.txt && python app.py` (port 8090, or set `PORT`).

@@ -1,5 +1,20 @@
 // Small helpers for the pages. The app works without this; it just makes forms nicer.
+// Light / dark mode: "auto" follows the phone or computer setting
+function setTheme(t) {
+  try { if (t === "auto") localStorage.removeItem("theme"); else localStorage.setItem("theme", t); } catch (e) {}
+  if (t === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+  document.querySelectorAll("[data-set-theme]").forEach(b => b.setAttribute("aria-pressed", b.dataset.setTheme === t));
+}
+function currentTheme() { return document.documentElement.dataset.theme || "auto"; }
+
 document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll("[data-theme-toggle]").forEach(b => b.addEventListener("click", () =>
+    setTheme({ auto: "light", light: "dark", dark: "auto" }[currentTheme()])));
+  document.querySelectorAll("[data-set-theme]").forEach(b => {
+    b.setAttribute("aria-pressed", b.dataset.setTheme === currentTheme());
+    b.addEventListener("click", () => setTheme(b.dataset.setTheme));
+  });
+
   // Property switcher in the header
   const sw = document.getElementById("switch");
   if (sw) sw.addEventListener("change", () => {

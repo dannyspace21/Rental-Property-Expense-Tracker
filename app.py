@@ -142,7 +142,7 @@ def page_globals():
     if request.endpoint == "static": return {}
     props = all_properties()
     pid = current_pid()
-    return {"props": props, "pid": pid, "prop": next((p for p in props if p["id"] == pid), None),
+    return {"props": props, "pid": pid, "version": APP_VERSION, "prop": next((p for p in props if p["id"] == pid), None),
             "today": today(), "MONTHS": MONTHS, "EXP_CATS": store.EXPENSE_CATEGORIES,
             "INC_CATS": store.INCOME_CATEGORIES, "LINE": store.CATEGORY_LINE}
 
@@ -158,16 +158,34 @@ def switch_property():
 # ---------- HOME ----------
 @app.route("/")
 def home():
-    pid, year = current_pid(), year_arg()
-    s = reports.year_summary(pid, year)
-    per_property = []
-    if pid is None:
-        for p in all_properties():
-            ps = reports.year_summary(p["id"], year)
-            per_property.append({"p": p, "income": ps["income"], "expense": ps["expense"], "net": ps["net"]})
-    return render_template("home.html", year=year, years=reports.years_with_data(pid), s=s,
-                           chart=reports.month_chart(s["months"]), alerts=reports.alerts(pid),
-                           recent=reports.find_transactions(pid=pid, limit=6), per_property=per_property)
+    """The main screen: pick a property, then add and see that year's expenses."""
+    props = all_properties()
+    pid = current_pid() or props[0]["id"]
+    prop = next(p for p in props if p["id"] == pid)
+    year = year_arg()
+    rows = reports.find_transactions(pid=pid, year=year)
+    t = reports.totals(rows)
+    # Monthly table (like the original "monthly charges"): one column per monthly bill,
+    # plus the mortgage and rent received. Everything else goes in the list of entries.
+    bills = db().execute("SELECT * FROM recurring WHERE property_id=? ORDER BY description", (pid,)).fetchall()
+    grid, entries = {}, []
+    for r in rows:
+        m = int(r["date"][5:7])
+        if r["recurring_id"]: key = r["recurring_id"]
+        elif r["category"] in reports.MORTGAGE_CATS: key = "mortgage"
+        elif r["kind"] == "income" and r["category"] == "Rent" and r["lease_id"]: key = "rent"
+        else:
+            entries.append(r); continue
+        grid.setdefault((key, m), []).append(r)
+    columns = [{"key": b["id"], "label": b["description"]} for b in bills
+               if b["active"] or any(k[0] == b["id"] for k in grid)]
+    if any(k[0] == "mortgage" for k in grid): columns.append({"key": "mortgage", "label": "Mortgage"})
+    if any(k[0] == "rent" for k in grid): columns.append({"key": "rent", "label": "Rent received"})
+    col_totals = {c["key"]: sum(r["amount"] for (k, _), items in grid.items() if k == c["key"] for r in items) for c in columns}
+    years = sorted(set(reports.years_with_data(pid)) | {year})
+    first = today().isoformat() if year == today().year else f"{year}-01-01"
+    return render_template("home.html", prop=prop, pid=pid, year=year, years=years, rows=entries, t=t,
+                           columns=columns, grid=grid, col_totals=col_totals, has_bills=bool(bills), first_date=first)
 
 
 # ---------- MONEY (all income & expenses) ----------
@@ -262,6 +280,10 @@ def money_save():
     flash(msg + (f" ({n} receipt{'s' if n > 1 else ''} attached)" if n else ""))
     if f.get("again"):
         return redirect(url_for("money_form", kind=kind, date=vals["date"], property=pid))
+    if f.get("from_home"):
+        resp = redirect(url_for("home", year=vals["date"][:4]) + "#list")
+        resp.set_cookie("pid", str(pid), max_age=10 * 365 * 24 * 3600, samesite="Lax")
+        return resp
     return back(url_for("money_list"))
 
 @app.route("/money/<int:tx_id>/delete", methods=["POST"])
@@ -330,12 +352,20 @@ def bills_delete(rid):
 # ---------- RENT & LEASES ----------
 @app.route("/rent")
 def rent():
-    pid, year = current_pid(), year_arg()
-    all_leases = reports.leases(pid)
-    t = today()
-    return render_template("rent.html", year=year, now=reports.rent_this_month(pid), roll=reports.rent_roll(pid, year),
-                           leases=all_leases, years=sorted(set(reports.years_with_data(pid)) | {t.year}),
-                           current_ids={l["id"] for l in reports.leases(pid, current_only=True)})
+    """Every lease with a tap-to-mark box for each month of the year."""
+    year = year_arg()
+    cards = []
+    for l in reports.leases(None):
+        paid = reports.rent_paid_by_month(l["id"], year)
+        cells = [dict(reports.rent_cell(l, year, m, paid.get(m, 0.0)), month=m) for m in range(1, 13)]
+        if all(c["status"] == "none" for c in cells): continue
+        cards.append({"lease": l, "cells": cells, "received": sum(paid.values()),
+                      "expected": sum(c["expected"] for c in cells)})
+    others = [l for l in reports.leases(None) if l["id"] not in {c["lease"]["id"] for c in cards}]
+    lease_years = [int(l["start_date"][:4]) for l in reports.leases(None)] + \
+                  [int(l["end_date"][:4]) for l in reports.leases(None) if l["end_date"]]
+    years = sorted(set(range(min(lease_years + [today().year]), max(lease_years + [today().year]) + 1)) | {year})
+    return render_template("rent.html", year=year, years=years, cards=cards, others=others)
 
 @app.route("/rent/<int:lease_id>/paid", methods=["POST"])
 def rent_paid(lease_id):
@@ -351,8 +381,21 @@ def rent_paid(lease_id):
     db().execute("INSERT INTO transactions (property_id,kind,date,description,category,amount,lease_id) VALUES (?,?,?,?,?,?,?)",
                  (l["property_id"], "income", date, f"Rent - {MONTHS[m-1]} ({l['tenant']})", "Rent", amount, lease_id))
     db().commit()
-    flash(f"Recorded {money(amount)} rent from {l['tenant']} for {MONTHS[m-1]}.")
-    return back(url_for("rent"))
+    flash(f"{MONTHS[m-1]} {y} marked paid ({money(amount)} from {l['tenant']}).")
+    return back(url_for("rent", year=y))
+
+@app.route("/rent/<int:lease_id>/unpaid", methods=["POST"])
+def rent_unpaid(lease_id):
+    """Undo: remove the rent recorded for one month."""
+    l = db().execute("SELECT * FROM leases WHERE id=?", (lease_id,)).fetchone() or abort(404)
+    y, m = request.form.get("year", type=int), request.form.get("month", type=int)
+    rows = db().execute("SELECT id, amount FROM transactions WHERE lease_id=? AND kind='income' AND category='Rent'"
+                        " AND substr(date,1,7)=?", (lease_id, f"{y}-{m:02d}")).fetchall()
+    for r in rows:
+        db().execute("DELETE FROM transactions WHERE id=?", (r["id"],))
+    db().commit()
+    flash(f"{MONTHS[m-1]} {y} marked not paid ({money(sum(r['amount'] for r in rows))} removed).")
+    return back(url_for("rent", year=y))
 
 @app.route("/leases/new")
 @app.route("/leases/<int:lease_id>/edit")
@@ -511,7 +554,8 @@ def property_form(prop_id=None):
     p = db().execute("SELECT * FROM properties WHERE id=?", (prop_id,)).fetchone() if prop_id else None
     if prop_id and not p: abort(404)
     used = db().execute("SELECT COUNT(*) FROM transactions WHERE property_id=?", (prop_id,)).fetchone()[0] if p else 0
-    return render_template("property.html", p=p, used=used, count=len(all_properties()))
+    return render_template("property.html", p=p, used=used, count=len(all_properties()),
+                           next=request.args.get("next") or local_path(request.referrer))
 
 @app.route("/properties/save", methods=["POST"])
 def property_save():
@@ -525,12 +569,12 @@ def property_save():
         db().execute("UPDATE properties SET name=?,address=?,units=?,purchase_date=?,purchase_price=?,land_value=?,closing_costs=?,"
                      "down_payment=?,current_value=?,in_service_date=?,notes=? WHERE id=?", vals + (pid,))
         db().commit(); flash("Property saved.")
-        return redirect(url_for("properties"))
+        return back(url_for("home"))
     pid = db().execute("INSERT INTO properties (name,address,units,purchase_date,purchase_price,land_value,closing_costs,"
                        "down_payment,current_value,in_service_date,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)", vals).lastrowid
     db().commit()
-    flash(f"Added {vals[0]}. It's now selected at the top of the page.")
-    resp = redirect(url_for("properties"))
+    flash(f"Added {vals[0]}. Add its expenses below.")
+    resp = redirect(url_for("home"))
     resp.set_cookie("pid", str(pid), max_age=10 * 365 * 24 * 3600, samesite="Lax")
     return resp
 
@@ -562,7 +606,7 @@ def reports_page():
         " GROUP BY v.id HAVING total >= 600 ORDER BY total DESC", [str(year), *store.NO_1099] + ([pid] if pid else [])).fetchall()
     return render_template("reports.html", year=year, years=reports.years_with_data(pid), se=reports.schedule_e(pid, year),
                            metrics=[(p, reports.metrics(p, year)) for p in props], yoy=yoy, vendors_1099=vendors_1099,
-                           s=reports.year_summary(pid, year))
+                           s=reports.year_summary(pid, year), chart=reports.month_chart(reports.year_summary(pid, year)["months"]))
 
 def report_title(pid):
     p = db().execute("SELECT name FROM properties WHERE id=?", (pid,)).fetchone() if pid else None
@@ -789,6 +833,34 @@ def mortgage_doc_delete(doc_id):
         except OSError: pass
     flash("Import undone: its entries were removed.")
     return redirect(url_for("mortgage_page", year=d["year"]))
+
+
+# ---------- ABOUT & WHAT'S NEW ----------
+APP_VERSION = "3.0"
+
+def simple_markdown(text):
+    """Turn the few Markdown bits used in CHANGELOG.md into HTML (headings, bullets, bold)."""
+    from markupsafe import Markup, escape
+    html, in_list = [], False
+    for line in text.splitlines():
+        line = line.rstrip()
+        item = line.startswith("- ")
+        if in_list and not item: html.append("</ul>"); in_list = False
+        body = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", str(escape(line.lstrip("#- ").strip())))
+        if line.startswith("## "): html.append(f"<h2>{body}</h2>")
+        elif line.startswith("### "): html.append(f"<h3>{body}</h3>")
+        elif item:
+            if not in_list: html.append("<ul>"); in_list = True
+            html.append(f"<li>{body}</li>")
+        elif line and not line.startswith("# "): html.append(f"<p>{body}</p>")
+    if in_list: html.append("</ul>")
+    return Markup("\n".join(html))
+
+@app.route("/about")
+def about():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "CHANGELOG.md")
+    notes = simple_markdown(open(path, encoding="utf-8").read()) if os.path.exists(path) else ""
+    return render_template("about.html", version=APP_VERSION, notes=notes)
 
 
 # ---------- MORE: import & backup ----------

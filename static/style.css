@@ -9,11 +9,17 @@
   --radius:14px;--nav-h:64px;
   color-scheme:light;
 }
-@media (prefers-color-scheme:dark){:root{
+/* Dark mode: follows the phone/computer setting ("Automatic"), unless Light or Dark is picked on the More page */
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
   --bg:#0f171d;--card:#17222a;--ink:#e3eaef;--muted:#93a4b0;--line:#26343e;--field:#0f1920;--field-line:#34444f;
   --brand:#2f6f96;--brand-2:#4b8fb8;--brand-soft:#1d3240;--on-brand:#fff;
   --good:#4fbf8a;--good-soft:#173328;--bad:#ef7d6a;--bad-soft:#3a1f1b;--warn:#e6b45a;--warn-soft:#352a14;
   --shadow:none;color-scheme:dark}}
+:root[data-theme=dark]{
+  --bg:#0f171d;--card:#17222a;--ink:#e3eaef;--muted:#93a4b0;--line:#26343e;--field:#0f1920;--field-line:#34444f;
+  --brand:#2f6f96;--brand-2:#4b8fb8;--brand-soft:#1d3240;--on-brand:#fff;
+  --good:#4fbf8a;--good-soft:#173328;--bad:#ef7d6a;--bad-soft:#3a1f1b;--warn:#e6b45a;--warn-soft:#352a14;
+  --shadow:none;color-scheme:dark}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -37,7 +43,7 @@ small,.muted{color:var(--muted)}
 .topnav .add{background:#fff;color:var(--brand);margin-left:6px}
 .topnav .add:hover{background:#e8f0f5;color:var(--brand)}
 .tabbar{position:fixed;bottom:0;left:0;right:0;z-index:30;background:var(--card);border-top:1px solid var(--line);
-  display:grid;grid-template-columns:repeat(5,1fr);padding-bottom:env(safe-area-inset-bottom)}
+  display:grid;grid-template-columns:repeat(4,1fr);padding-bottom:env(safe-area-inset-bottom)}
 .tabbar a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:var(--nav-h);
   text-decoration:none;color:var(--muted);font-size:12px;font-weight:600}
 .tabbar a svg{width:24px;height:24px}
@@ -47,7 +53,7 @@ small,.muted{color:var(--muted)}
 .tabbar .plus span svg{width:28px;height:28px}
 main{max-width:1100px;margin:0 auto;padding:14px 14px calc(var(--nav-h) + 28px + env(safe-area-inset-bottom))}
 @media (min-width:860px){
-  .topnav{display:flex} .tabbar{display:none} .switcher{margin-left:12px;max-width:260px} .topnav{margin-left:auto}
+  .topnav{display:flex} .tabbar{display:none} .topnav{margin-left:auto}
   main{padding:22px 22px 40px}
 }
 
@@ -172,3 +178,43 @@ table.grid12 td:first-child,table.grid12 th:first-child{text-align:left;position
 @media print{.top,.tabbar,.noprint,.btn{display:none!important} main{padding:0} .card{box-shadow:none;break-inside:avoid}}
 /* small icons inside messages and headings */
 .note svg,.flash svg,h1 svg,h2 svg,h3 svg{width:18px;height:18px;vertical-align:-3px;margin-right:4px;flex:none}
+
+/* ----- light / dark switch in the header ----- */
+.theme-btn{margin-left:auto;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;
+  width:40px;height:40px;font-size:19px;line-height:1;cursor:pointer;flex:none}
+@media (min-width:860px){.theme-btn{margin-left:8px}}
+.theme-btn{display:grid;place-items:center;padding:0}
+.theme-btn svg{width:20px;height:20px;display:none}
+:root:not([data-theme]) .theme-btn .t-auto,:root[data-theme=light] .theme-btn .t-light,:root[data-theme=dark] .theme-btn .t-dark{display:block}
+.theme-pick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.theme-pick button{font:inherit;font-weight:700;padding:12px 6px;border-radius:11px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.theme-pick button[aria-pressed=true]{border-color:var(--brand-2);background:var(--brand-soft);color:var(--brand-2)}
+
+/* ----- property tabs on Home ----- */
+.chips.props a{font-size:15px;padding:9px 16px}
+.chips .add{background:transparent;border:1.5px dashed var(--brand-2)}
+
+/* ----- quick add form on Home ----- */
+.quick{display:grid;gap:12px;grid-template-columns:1fr 1fr}
+.quick .grow{grid-column:1/-1}
+@media (min-width:860px){.quick{grid-template-columns:160px 1fr 200px 140px}.quick .grow{grid-column:auto}}
+
+/* ----- Rent: one box per month ----- */
+.months{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:6px 0 10px}
+@media (min-width:600px){.months{grid-template-columns:repeat(6,1fr)}}
+@media (min-width:1000px){.months{grid-template-columns:repeat(12,1fr)}}
+.months form{margin:0;display:contents}
+.month{font:inherit;font-weight:800;font-size:15px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  min-height:62px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;width:100%;padding:6px 2px}
+.month small{font-size:11px;font-weight:700;color:var(--muted)}
+.month.paid{background:var(--good-soft);border-color:var(--good);color:var(--good)} .month.paid small{color:var(--good)}
+.month.late{border-color:var(--bad);color:var(--bad)} .month.late small{color:var(--bad)}
+.month.partial{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)} .month.partial small{color:var(--warn)}
+.month.due{border-color:var(--warn)}
+.month.off{opacity:.45;cursor:default;border-style:dashed}
+.month:not(.off):hover{filter:brightness(.97)}
+
+/* ----- About page ----- */
+.notes h2{font-size:18px;margin:22px 0 4px} .notes h2:first-child{margin-top:0} .notes h3{font-size:15px;margin:12px 0 4px;color:var(--muted)}
+.notes ul{margin:4px 0 8px;padding-left:20px} .notes li{margin:3px 0}
+.chips.props{flex-wrap:wrap;overflow:visible}

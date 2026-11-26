@@ -1,9 +1,10 @@
-{% extends "base.html" %}{% from "macros.html" import icon, money_row with context %}
-{% block title %}Money{% endblock %}
+{% extends "base.html" %}{% from "macros.html" import icon, money_row, property_chips with context %}
+{% block title %}Search{% endblock %}
 {% block content %}
-<div class="head"><h1>Money</h1>
-  <div class="row-btns"><a class="btn sm ghost" href="{{ url_for('money_csv', **request.args) }}">{{ icon('download') }}CSV</a>
-  <a class="btn sm" href="{{ url_for('money_form') }}">{{ icon('plus') }}Add</a></div></div>
+<div class="head"><h1>Search &amp; export</h1>
+  <a class="btn sm ghost" href="{{ url_for('money_csv', **request.args) }}">{{ icon('download') }}Export CSV</a></div>
+<p class="hint" style="margin-top:-6px">Find any entry across years and properties, or download a spreadsheet (CSV) for your accountant.</p>
+{{ property_chips() }}
 
 <form method="get" class="card flat" style="padding:12px">
   <div style="display:flex;gap:8px">

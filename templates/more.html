@@ -3,27 +3,38 @@
 {% block content %}
 <h1>More</h1>
 <div class="tiles" style="margin-bottom:14px">
-  <a class="tile" href="{{ url_for('upkeep') }}">{{ icon('tool') }}<b>Upkeep</b><small class="muted">Maintenance reminders & history</small></a>
-  <a class="tile" href="{{ url_for('reports_page') }}">{{ icon('chart') }}<b>Reports</b><small class="muted">Schedule E, depreciation, returns</small></a>
-  <a class="tile" href="{{ url_for('mortgage_page') }}">{{ icon('building') }}<b>Mortgage</b><small class="muted">Import statements &amp; Form 1098</small></a>
-  <a class="tile" href="{{ url_for('bills') }}">{{ icon('repeat') }}<b>Recurring bills</b><small class="muted">HOA, fees, insurance, mortgage</small></a>
-  <a class="tile" href="{{ url_for('vendors') }}">{{ icon('users') }}<b>Vendors</b><small class="muted">Contractors & 1099 tracking</small></a>
-  <a class="tile" href="{{ url_for('properties') }}">{{ icon('building') }}<b>Properties</b><small class="muted">Add or edit properties</small></a>
-  <a class="tile" href="{{ url_for('backup') }}">{{ icon('download') }}<b>Download backup</b><small class="muted">All data + receipts (.zip)</small></a>
+  <a class="tile" href="{{ url_for('properties') }}">{{ icon('building') }}<b>Properties</b><small class="muted">Add, rename or remove properties</small></a>
+  <a class="tile" href="{{ url_for('bills') }}">{{ icon('repeat') }}<b>Monthly bills</b><small class="muted">HOA, management fee, insurance</small></a>
+  <a class="tile" href="{{ url_for('mortgage_page') }}">{{ icon('file') }}<b>Mortgage</b><small class="muted">Import statements &amp; Form 1098</small></a>
+  <a class="tile" href="{{ url_for('money_list') }}">{{ icon('search') }}<b>Search &amp; export</b><small class="muted">Find entries, download CSV</small></a>
+  <a class="tile" href="{{ url_for('vendors') }}">{{ icon('users') }}<b>Vendors</b><small class="muted">Contractors &amp; 1099 check</small></a>
+  <a class="tile" href="{{ url_for('upkeep') }}">{{ icon('tool') }}<b>Upkeep</b><small class="muted">Maintenance reminders</small></a>
 </div>
 
-<section class="card"><h2>Automatic backups</h2>
-  <p class="hint" style="margin-top:-6px">A copy of your data is saved every day in <code>data/backups</code> (the last 14 days are kept).</p>
-  {% if backups %}<ul class="list">{% for b in backups %}<li><span class="main"><small>{{ b }}</small></span></li>{% endfor %}</ul>{% endif %}
+<section class="card"><h2>Appearance</h2>
+  <div class="theme-pick" role="group" aria-label="Appearance">
+    <button type="button" data-set-theme="auto">Automatic</button>
+    <button type="button" data-set-theme="light">Light</button>
+    <button type="button" data-set-theme="dark">Dark</button>
+  </div>
+  <p class="hint">Automatic follows your phone or computer setting. You can also tap the button at the top right.</p>
 </section>
 
-<section class="card"><h2>Import from Excel</h2>
-  <form method="post" action="{{ url_for('import_excel') }}" enctype="multipart/form-data" class="fields"
-        data-confirm="This replaces the typed-in expenses for every year found in the file (income, rent and recurring bills are kept). A safety copy is made first. Continue?">
+<section class="card"><h2>Backup</h2>
+  <p class="hint" style="margin-top:-6px">A copy of your data is saved automatically every day in <code>data/backups</code> (the last 14 days are kept).
+    {% if backups %}Latest: {{ backups[0] }}.{% endif %}</p>
+  <a class="btn alt" href="{{ url_for('backup') }}">{{ icon('download') }}Download everything (.zip)</a>
+</section>
+
+<section class="card"><details class="more"><summary>Import from Excel</summary>
+  <form method="post" action="{{ url_for('import_excel') }}" enctype="multipart/form-data" class="fields" style="margin-top:8px"
+        data-confirm="This replaces the typed-in expenses for every year found in the file (income, rent and monthly bills are kept). A safety copy is made first. Continue?">
     <p class="hint" style="margin:0">Each sheet named by year (like 2025). Expenses in columns A–C from row 3; monthly management fee, agent and HOA in columns F–H.</p>
     {{ property_select(pid or props[0].id, 'Import into') }}
     <input type="file" name="file" accept=".xlsx" required>
     <div><button class="btn">{{ icon('upload') }}Import</button></div>
-  </form>
+  </form></details>
 </section>
+
+<a class="tile" href="{{ url_for('about') }}" style="flex-direction:row;align-items:center">{{ icon('file') }}<span><b>About &amp; what's new</b><br><small class="muted">Version {{ version }} · release notes</small></span></a>
 {% endblock %}

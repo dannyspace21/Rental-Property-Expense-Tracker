@@ -1,7 +1,8 @@
-{% extends "base.html" %}{% from "macros.html" import icon, property_select with context %}
+{% extends "base.html" %}{% from "macros.html" import icon, property_select, property_chips with context %}
 {% block title %}Upkeep{% endblock %}
 {% block content %}
 <div class="head"><h1>Upkeep</h1><a class="btn sm" href="#form">{{ icon('plus') }}Add reminder</a></div>
+{{ property_chips() }}
 
 <section class="card"><h2>Reminders</h2><p class="hint" style="margin-top:-6px">Tap a reminder to edit it. Tap <b>Done</b> when it's finished, and the next due date is set for you.</p>
 {% set open_tasks = tasks|rejectattr('done')|list %}
